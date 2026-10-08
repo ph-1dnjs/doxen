@@ -34,6 +34,7 @@ yarn docs:build
 // docs.config.ts
 export default {
   title: '팀 문서',
+  icon: { background: '#edf8ff', color: '#467792', border: '#bcdff8' },
   tabs: [
     { title: '정책서', dir: './pharma', slug: 'pharma' },
     { title: '프론트엔드', dir: './fe', slug: 'fe' },
@@ -46,6 +47,9 @@ export default {
 
 - `dir`: 설정 파일 기준의 전용 하위 폴더. 저장소 루트 또는 외부 폴더는 허용하지 않습니다.
 - `slug`: 고유한 영문 소문자·숫자·하이픈. 문서 URL의 일부입니다.
+- `icon.background` / `icon.color`: 상단 로고와 파비콘의 배경색 / 글자색. `#fff` 또는 `#ffffff` 형식의 HEX 색상을 지원하며, 생략하면 각각 `#edf8ff` / `#467792`가 적용됩니다.
+- `icon.border`: 상단 로고의 테두리 색상. 같은 HEX 형식을 지원하며, 기본값은 `#bcdff8`입니다.
+- `icon: '#eab308'`처럼 색상 하나만 지정하면 같은 색 계열의 밝은 배경색, 중간 톤 테두리, 진한 글자색을 자동 생성합니다. 개별 색상 객체 대신 사용할 수 있습니다.
 - 파일 이름순(숫자 순서 인식)으로 정렬합니다. `01-introduction.md`처럼 번호를 붙이면 순서를 제어할 수 있습니다.
 - 하위 폴더는 탐색 목록에 경로로 표시합니다. 숨김 파일, `node_modules`, 심볼릭 링크 문서는 제외합니다.
 - 탭 전체 내용은 같은 정적 사이트에 포함됩니다. 탭별 권한 분리는 제공하지 않습니다.

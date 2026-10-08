@@ -188,6 +188,89 @@ test("favicon uses the first grapheme of the trimmed title and escapes XML", asy
   }
 });
 
+test("icon colors default independently, customize built icons and reject invalid colors", async (t) => {
+  const root = await fixture(t);
+  const config = await loadConfig(root);
+  assert.deepEqual(config.icon, { background: "#edf8ff", color: "#467792", border: "#bcdff8" });
+  const source = {
+    title: "팀 문서",
+    tabs: [
+      { title: "안내", slug: "guide", dir: "./guide" },
+      { title: "API", slug: "api", dir: "./api" },
+    ],
+  };
+  for (const icon of [
+    { color: "#ABC" },
+    { border: "#ABC" },
+    { background: "#f3e8ff", color: "#7e22ce", border: "#c084fc" },
+  ]) {
+    await writeFile(
+      path.join(root, "docs.config.ts"),
+      `export default ${JSON.stringify({ ...source, icon })}`,
+    );
+    const custom = await loadConfig(root);
+    assert.deepEqual(custom.icon, { ...config.icon, ...icon });
+    const out = await build(custom);
+    const html = await readFile(path.join(out, "index.html"), "utf8");
+    const svg = await readFile(path.join(out, "favicon.svg"), "utf8");
+    assert.ok(html.includes(`--icon-background:${custom.icon.background}`));
+    assert.ok(html.includes(`--icon-color:${custom.icon.color}`));
+    assert.ok(html.includes(`--icon-border:${custom.icon.border}`));
+    assert.ok(svg.includes(`fill="${custom.icon.background}"`));
+    assert.ok(svg.includes(`fill="${custom.icon.color}"`));
+  }
+  for (const icon of [
+    null,
+    "yellow",
+    [],
+    { color: 123 },
+    { color: "red" },
+    { background: "#abcd" },
+    { border: "purple" },
+    { color: '#fff"/><script>' },
+  ]) {
+    await writeFile(
+      path.join(root, "docs.config.ts"),
+      `export default ${JSON.stringify({ ...source, icon })}`,
+    );
+    await assert.rejects(loadConfig(root), /icon/);
+  }
+});
+
+test("a single icon color generates matching tones and supports short HEX", async (t) => {
+  const root = await fixture(t);
+  const source = await readFile(path.join(root, "docs.config.ts"), "utf8");
+  for (const [color, expected] of [
+    ["#eab308", { background: "#fdf7e6", border: "#f7e19c", color: "#816204" }],
+    ["#ABC", { background: "#f7f8fa", border: "#dde4eb", color: "#5e6770" }],
+    ["#ffffff", { background: "#ffffff", border: "#ffffff", color: "#8c8c8c" }],
+    ["#000000", { background: "#e6e6e6", border: "#999999", color: "#000000" }],
+  ]) {
+    await writeFile(
+      path.join(root, "docs.config.ts"),
+      source.replace("title: '팀 문서'", `title: '팀 문서', icon: '${color}'`),
+    );
+    const config = await loadConfig(root);
+    assert.deepEqual(config.icon, expected);
+    const files = await siteFiles(config, true);
+    assert.ok(files.get("/index.html").toString().includes(`--icon-border:${expected.border}`));
+    assert.ok(files.get("/favicon.svg").toString().includes(`fill="${expected.color}"`));
+  }
+});
+
+test("init includes editable default icon colors in new configs", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "safibook-init-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await init(root);
+  const source = await readFile(path.join(root, "docs.config.ts"), "utf8");
+  assert.match(source, /icon: \{ background: '#edf8ff', color: '#467792', border: '#bcdff8' \}/);
+  assert.deepEqual((await loadConfig(root)).icon, {
+    background: "#edf8ff",
+    color: "#467792",
+    border: "#bcdff8",
+  });
+});
+
 test("build refuses to delete user-owned output and leaves last successful build on failure", async (t) => {
   const root = await fixture(t);
   await mkdir(path.join(root, ".docs-dist"));
@@ -256,6 +339,10 @@ test("dev serves generated files only and reloads content and imported config de
     path.join(root, "guide", "new.md"),
     "# 새 문서\n\n검색할 새 내용",
   );
+  await writeFile(
+    path.join(root, "docs.config.ts"),
+    `import title from './name'; export default {title,icon:{background:'#f3e8ff',color:'#7e22ce',border:'#c084fc'},tabs:[{title:'가이드',slug:'guide',dir:'./guide'},{title:'API',slug:'api',dir:'./api'}]}`,
+  );
   const deadline = Date.now() + 7000;
   let updated;
   do {
@@ -268,6 +355,8 @@ test("dev serves generated files only and reloads content and imported config de
   assert.equal(updated.title, "변경한 제목");
   assert.equal(updated.documents.length, 3);
   assert.match(await (await fetch(`${base}/favicon.svg`)).text(), />변<\/text>/);
+  assert.match(await (await fetch(`${base}/favicon.svg`)).text(), /fill="#7e22ce"/);
+  assert.match(await (await fetch(`${base}/`)).text(), /--icon-background:#f3e8ff;--icon-color:#7e22ce;--icon-border:#c084fc/);
 });
 
 test("AI preparation includes the standard template and source without modifying files", async (t) => {

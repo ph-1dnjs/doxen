@@ -78,9 +78,9 @@ header {
   place-items: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #bcdff8;
-  background: #edf8ff;
-  color: #467792;
+  border: 1px solid var(--icon-border, #bcdff8);
+  background: var(--icon-background, #edf8ff);
+  color: var(--icon-color, #467792);
   border-radius: 3px;
   font-size: 21px;
   line-height: 1;

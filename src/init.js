@@ -19,7 +19,7 @@ export async function init(cwd) {
     await mkdir(path.join(cwd, "docs"), { recursive: true });
     await writeFile(
       path.join(cwd, "docs.config.ts"),
-      `export default {\n  title: '팀 문서',\n  tabs: [\n    { title: '가이드', dir: './docs', slug: 'guide' },\n  ],\n};\n`,
+      `export default {\n  title: '팀 문서',\n  icon: { background: '#edf8ff', color: '#467792', border: '#bcdff8' },\n  tabs: [\n    { title: '가이드', dir: './docs', slug: 'guide' },\n  ],\n};\n`,
       { flag: "wx" },
     );
     if (!(await exists(path.join(cwd, "docs", "README.md"))))
