@@ -383,6 +383,13 @@ article img {
   line-height: 1;
   color: #7e8a96;
 }
+.section-tools:focus-within {
+  border-color: #acd3f0;
+  box-shadow: 0 0 0 2px #acd3f0, 0 4px 10px #62b5ed24;
+}
+.section-tools input:focus-visible {
+  outline: none;
+}
 .section-tools label {
   position: absolute;
   width: 1px;
