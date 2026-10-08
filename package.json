@@ -41,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/safience-una/safibook.git"
+    "url": "git+https://github.com/ph-1dnjs/doxen.git"
   },
   "publishConfig": {
     "access": "public"
