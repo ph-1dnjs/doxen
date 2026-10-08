@@ -1,5 +1,8 @@
 export const normalize = (text) =>
   text.normalize("NFKC").toLocaleLowerCase("ko");
+export function matchesRow(text, query) {
+  return normalize(text).includes(normalize(query).trim());
+}
 export const terms = (query) => [
   ...new Set(normalize(query).trim().split(/\s+/).filter(Boolean)),
 ];

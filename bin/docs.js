@@ -19,7 +19,7 @@ try {
     },
   });
   const [command, ...extra] = positionals;
-  if (values.version) console.log("0.1.0");
+  if (values.version) console.log("0.1.1");
   else if (values.help || !command)
     console.log(
       `Safibook — 저장소 기반 문서 사이트\n\n  docs init                 설정과 스크립트 생성\n  docs dev [--port 4173]    로컬 미리보기 및 자동 갱신\n  docs build                .docs-dist 정적 사이트 생성\n  docs ai --file <문서.md> --instruction "변경 요청"\n                            표준 양식과 AI 작업 지침을 stdout으로 출력\n\n옵션: --config <파일> (dev/build/ai), --help, --version\n동일 명령: safibook <명령>`,

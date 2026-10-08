@@ -1,15 +1,15 @@
 # Safibook
 
-> 기존 저장소의 Markdown 폴더를 설정 파일 하나로 연결하는 npm 패키지입니다. Node.js 20.19 이상이 필요합니다. 현재 0.1.0 구현 기준이며 npm 레지스트리에는 아직 게시하지 않았습니다.
+> 기존 저장소의 Markdown 폴더를 설정 파일 하나로 연결하는 npm 패키지입니다. Node.js 20.19 이상이 필요합니다. 현재 0.1.1 구현 기준입니다.
 
 상단 탭, 폴더별 문서 탐색, 목차, 한국어 전체 검색, 검색 위치 이동, 문서 및 지정 섹션 안에서 찾기 기능을 제공합니다. React/Vue 등 사용자 프로젝트의 프레임워크에 의존하지 않으며, 사이트 소스는 패키지 안에 있습니다.
 
 ## 설치와 시작
 
-게시 전에는 패키지 저장소에서 `npm ci && npm pack`으로 만든 tgz를 문서 저장소에 설치합니다.
+npm 레지스트리에 배포된 패키지는 다음과 같이 설치합니다. 로컬 설치는 `npm pack`으로 만든 tgz 경로를 패키지명 대신 사용합니다.
 
 ```bash
-npm install -D /path/to/safience-una-safibook-0.1.0.tgz
+npm install -D @safience-una/safibook
 npx docs init
 npm run docs:dev
 npm run docs:build
@@ -18,13 +18,13 @@ npm run docs:build
 Yarn도 같은 패키지를 사용할 수 있습니다.
 
 ```bash
-yarn add -D /path/to/safience-una-safibook-0.1.0.tgz
+yarn add -D @safience-una/safibook
 yarn safibook init
 yarn docs:dev
 yarn docs:build
 ```
 
-npm 게시 후에는 설치 경로 대신 `@safience-una/safibook`을 사용합니다. `docs`라는 실행 파일이 다른 의존성과 겹치면 동일한 CLI인 `safibook`을 사용하세요. 생성되는 스크립트는 충돌을 줄이기 위해 `safibook`을 사용합니다.
+`docs`라는 실행 파일이 다른 의존성과 겹치면 동일한 CLI인 `safibook`을 사용하세요. 생성되는 스크립트는 충돌을 줄이기 위해 `safibook`을 사용합니다.
 
 `init`은 기존 설정, 문서, 프로젝트 스크립트를 덮어쓰지 않습니다. 설정이 없으면 `docs/README.md`, `docs.config.ts`를 만들고 `docs:dev`, `docs:build` 스크립트를 추가합니다. `.gitignore`에는 생성물과 `node_modules`를 등록합니다. 이미 문서 폴더가 있다면 설정 파일의 경로만 연결하고 생성된 시작 문서는 필요에 따라 제거하세요.
 
@@ -67,7 +67,7 @@ export default {
 
 `⌘/Ctrl K` 또는 상단 검색 버튼으로 모든 탭의 제목·본문·표·코드를 검색합니다. 공백으로 나눈 단어를 모두 포함하는 섹션을 찾으며 제목에 일치하는 결과를 먼저 표시합니다. 한국어 Unicode 정규화와 영문 대소문자 구분 없는 부분 일치를 지원합니다. 형태소 분석·오타 교정 검색은 포함하지 않습니다.
 
-결과를 선택하면 해당 문서와 제목 위치로 이동하며 일치하는 글자를 표시합니다. 문서 상단 검색창 또는 다음과 같은 섹션 검색창에서 이전·다음 버튼, Enter / Shift+Enter로 이동합니다. 검색은 현재 선택한 한 영역에 적용됩니다. 섹션 검색은 내용의 표시·숨김이 아니라 일치 위치를 강조하고 이동하는 기능입니다.
+결과를 선택하면 해당 문서와 제목 위치로 이동하며 일치하는 글자를 표시합니다. 문서 상단 검색창 또는 다음과 같은 섹션 검색창에서 이전·다음 버튼, Enter / Shift+Enter로 이동합니다. 검색은 현재 선택한 한 영역에 적용됩니다. 섹션 및 문서 내 검색은 입력한 문자열이 포함된 표의 본문 행만 남기고 나머지 행을 숨깁니다. 표 머리글은 유지하며 검색어를 지우면 모든 행을 복원합니다. 영문 대소문자와 한국어 Unicode 정규화를 적용하고 앞뒤 공백을 제외한 연속 문자열로 비교합니다. 표 밖의 본문은 숨기지 않고 일치 위치를 강조합니다.
 
 ```markdown
 ## 1. 환불 정책

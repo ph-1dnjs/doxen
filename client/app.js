@@ -1,4 +1,4 @@
-import { searchDocuments, matchRanges } from "./search.js";
+import { searchDocuments, matchRanges, matchesRow } from "./search.js";
 
 const $ = (selector) => document.querySelector(selector);
 const el = (tag, text, className) => {
@@ -25,7 +25,7 @@ function highlight(root, query) {
   clearMarks(root);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      return node.parentElement.closest(".section-tools, script, style")
+      return node.parentElement.closest(".section-tools, script, style, [hidden]")
         ? NodeFilter.FILTER_REJECT
         : NodeFilter.FILTER_ACCEPT;
     },
@@ -56,11 +56,13 @@ function highlight(root, query) {
 
 let finders = [];
 function attachFinder(input, root, count, prev, next) {
+  const rows = [...root.querySelectorAll("tbody tr")];
   let hits = [];
   let index = -1;
   const state = {
     input,
     reset() {
+      for (const row of rows) row.hidden = false;
       hits = [];
       index = -1;
       count.textContent = "";
@@ -89,6 +91,9 @@ function attachFinder(input, root, count, prev, next) {
         finder.reset();
       }
     clearMarks($("#article"));
+    for (const row of rows) {
+      row.hidden = !matchesRow([...row.cells].map((cell) => cell.textContent).join(" "), input.value);
+    }
     hits = highlight(root, input.value);
     index = -1;
     if (hits.length) move(1);

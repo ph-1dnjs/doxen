@@ -17,6 +17,16 @@ import { collectSite } from "../src/content.js";
 import { build } from "../src/build.js";
 import { dev } from "../src/dev.js";
 import { prepareAi } from "../src/ai.js";
+import { matchesRow } from "../client/search.js";
+
+test("row filtering matches phrases, normalizes Korean and restores empty searches", () => {
+  assert.equal(matchesRow("사업자 번호 변경", "사업자"), true);
+  assert.equal(matchesRow("사업자 번호 변경", "번호 변경"), true);
+  assert.equal(matchesRow("사업자 번호 변경", "번호 없음"), false);
+  assert.equal(matchesRow("정산".normalize("NFD"), "정산"), true);
+  assert.equal(matchesRow("ＡＰＩ 오류", "api"), true);
+  assert.equal(matchesRow("일반 행", "   "), true);
+});
 import { searchDocuments, matchRanges } from "../client/search.js";
 
 async function fixture(t) {

@@ -134,3 +134,19 @@ test("numbered sections have optional searches below headings", async ({
     page.locator(".search-section").nth(2).locator("mark"),
   ).toHaveCount(0);
 });
+
+test('section search filters table rows and restores them on clear', async ({ page }) => {
+  await page.goto('./#/guide%2F03-section-template');
+  const section = page.locator('.search-section').nth(0);
+  const input = page.getByRole('searchbox', {name: '사업자 정보 단계 검색', exact: true});
+  await expect(section.locator('tbody tr:visible')).toHaveCount(9);
+  await input.fill('사업자');
+  await expect(section.locator('tbody tr:visible')).toHaveCount(6);
+  await expect(section.locator('thead')).toBeVisible();
+  await expect(page.locator('.search-section').nth(1).locator('tbody tr:visible')).toHaveCount(5);
+  await input.fill('없는검색어');
+  await expect(section.locator('tbody tr:visible')).toHaveCount(0);
+  await expect(section.locator('.match-count')).toHaveText('0 / 0');
+  await input.fill('');
+  await expect(section.locator('tbody tr:visible')).toHaveCount(9);
+});
