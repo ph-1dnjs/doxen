@@ -19,6 +19,15 @@ const marker = ".safibook-output";
 export async function siteFiles(config, dev = false) {
   const { data, assets } = await collectSite(config);
   const files = new Map();
+  const initial = new Intl.Segmenter("ko", { granularity: "grapheme" })
+    .segment(config.title.trim().normalize("NFC"))[Symbol.iterator]()
+    .next().value.segment;
+  files.set(
+    "/favicon.svg",
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#e0f2fe"/><text x="16" y="17" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#47718d">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</text></svg>`,
+    ),
+  );
   for (const name of ["index.html", "app.js", "style.css", "search.js"])
     files.set(`/${name}`, await readFile(path.join(client, name)));
   let html = files.get("/index.html").toString();

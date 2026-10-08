@@ -14,7 +14,7 @@ import path from "node:path";
 import { init } from "../src/init.js";
 import { loadConfig } from "../src/config.js";
 import { collectSite } from "../src/content.js";
-import { build } from "../src/build.js";
+import { build, siteFiles } from "../src/build.js";
 import { dev } from "../src/dev.js";
 import { prepareAi } from "../src/ai.js";
 import { matchesRow } from "../client/search.js";
@@ -164,6 +164,28 @@ test("build includes only referenced assets, skips hidden and symlink files, and
     await readFile(path.join(out, "index.html"), "utf8"),
     /<title>팀 문서<\/title>/,
   );
+  assert.match(
+    await readFile(path.join(out, "index.html"), "utf8"),
+    /<link rel="icon" type="image\/svg\+xml" href="\.\/favicon.svg"/,
+  );
+  assert.match(
+    await readFile(path.join(out, "favicon.svg"), "utf8"),
+    />팀<\/text>/,
+  );
+});
+
+test("favicon uses the first grapheme of the trimmed title and escapes XML", async (t) => {
+  const config = await loadConfig(await fixture(t));
+  for (const [title, expected] of [
+    ["  Project docs", "P"],
+    ["팀 문서".normalize("NFD"), "팀"],
+    ["👩‍💻 Docs", "👩‍💻"],
+    ["& Docs", "&#38;"],
+    ["<Docs", "&#60;"],
+  ]) {
+    const files = await siteFiles({ ...config, title });
+    assert.ok(files.get("/favicon.svg").toString().includes(`>${expected}</text>`));
+  }
 });
 
 test("build refuses to delete user-owned output and leaves last successful build on failure", async (t) => {
@@ -218,6 +240,10 @@ test("dev serves generated files only and reloads content and imported config de
   t.after(() => running.close());
   const base = `http://127.0.0.1:${running.server.address().port}`;
   assert.equal((await fetch(`${base}/`)).status, 200);
+  const favicon = await fetch(`${base}/favicon.svg`);
+  assert.equal(favicon.status, 200);
+  assert.equal(favicon.headers.get("content-type"), "image/svg+xml");
+  assert.match(await favicon.text(), />첫<\/text>/);
   assert.equal((await fetch(`${base}/package.json`)).status, 404);
   assert.equal((await fetch(`${base}/%2e%2e/docs.config.ts`)).status, 404);
   assert.equal(
@@ -241,6 +267,7 @@ test("dev serves generated files only and reloads content and imported config de
   );
   assert.equal(updated.title, "변경한 제목");
   assert.equal(updated.documents.length, 3);
+  assert.match(await (await fetch(`${base}/favicon.svg`)).text(), />변<\/text>/);
 });
 
 test("AI preparation includes the standard template and source without modifying files", async (t) => {
