@@ -1,5 +1,5 @@
 export default {
-  title: 'Safibook',
+  title: 'Doxen',
   icon: '#eab308',
   description: '팀의 지식을 한곳에, 문서 관리는 가볍게.',
   tabs: [

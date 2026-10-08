@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
-const root = await mkdtemp(path.join(tmpdir(), "safibook-consumer-"));
+const root = await mkdtemp(path.join(tmpdir(), "doxen-consumer-"));
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const useYarn = process.argv.includes("--yarn");
 const run = (args, cwd) =>
@@ -13,7 +13,7 @@ const run = (args, cwd) =>
     encoding: "utf8",
     env: {
       ...process.env,
-      npm_config_cache: path.join(tmpdir(), "safibook-npm-cache"),
+      npm_config_cache: path.join(tmpdir(), "doxen-npm-cache"),
     },
   });
 try {
@@ -37,7 +37,7 @@ try {
       encoding: "utf8",
       env: {
         ...process.env,
-        YARN_CACHE_FOLDER: path.join(tmpdir(), "safibook-yarn-cache"),
+        YARN_CACHE_FOLDER: path.join(tmpdir(), "doxen-yarn-cache"),
       },
     });
   if (useYarn) {
@@ -48,7 +48,7 @@ try {
       "--ignore-scripts",
       "--non-interactive",
     ]);
-    yarn(["safibook", "init"]);
+    yarn(["doxen", "init"]);
   } else {
     run(
       [

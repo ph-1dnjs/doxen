@@ -22,7 +22,7 @@ try {
   if (values.version) console.log("0.1.1");
   else if (values.help || !command)
     console.log(
-      `Safibook — 저장소 기반 문서 사이트\n\n  docs init                 설정과 스크립트 생성\n  docs dev [--port 4173]    로컬 미리보기 및 자동 갱신\n  docs build                .docs-dist 정적 사이트 생성\n  docs ai --file <문서.md> --instruction "변경 요청"\n                            표준 양식과 AI 작업 지침을 stdout으로 출력\n\n옵션: --config <파일> (dev/build/ai), --help, --version\n동일 명령: safibook <명령>`,
+      `Doxen — 저장소 기반 문서 사이트\n\n  docs init                 설정과 스크립트 생성\n  docs dev [--port 4173]    로컬 미리보기 및 자동 갱신\n  docs build                .docs-dist 정적 사이트 생성\n  docs ai --file <문서.md> --instruction "변경 요청"\n                            표준 양식과 AI 작업 지침을 stdout으로 출력\n\n옵션: --config <파일> (dev/build/ai), --help, --version\n동일 명령: doxen <명령>`,
     );
   else {
     if (extra.length) throw new Error(`알 수 없는 인자: ${extra.join(" ")}`);
@@ -55,6 +55,6 @@ try {
     } else throw new Error(`알 수 없는 명령: ${command}`);
   }
 } catch (error) {
-  console.error(`Safibook: ${error.message}`);
+  console.error(`Doxen: ${error.message}`);
   process.exitCode = 1;
 }

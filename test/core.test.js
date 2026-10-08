@@ -30,7 +30,7 @@ test("row filtering matches phrases, normalizes Korean and restores empty search
 import { searchDocuments, matchRanges } from "../client/search.js";
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(tmpdir(), "safibook-test-"));
+  const root = await mkdtemp(path.join(tmpdir(), "doxen-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(path.join(root, "guide"));
   await mkdir(path.join(root, "api"));
@@ -76,7 +76,7 @@ test("init preserves existing application scripts, config and documents; repeate
   const pkg = JSON.parse(before);
   assert.equal(pkg.scripts.dev, "vite");
   assert.equal(pkg.scripts["docs:dev"], "custom-command");
-  assert.equal(pkg.scripts["docs:build"], "safibook build");
+  assert.equal(pkg.scripts["docs:build"], "doxen build");
   assert.equal(pkg.dependencies.react, "19.0.0");
 });
 
@@ -157,7 +157,7 @@ test("build includes only referenced assets, skips hidden and symlink files, and
   const out = await build(config);
   assert.equal((await readdir(path.join(out, "assets"))).length, 1);
   const data = await readFile(path.join(out, "site.json"), "utf8");
-  assert.doesNotMatch(data, /SECRET|UNUSED|safibook-test-/);
+  assert.doesNotMatch(data, /SECRET|UNUSED|doxen-test-/);
   await build(config);
   assert.equal(await readFile(path.join(out, "site.json"), "utf8"), data);
   assert.match(
@@ -259,7 +259,7 @@ test("a single icon color generates matching tones and supports short HEX", asyn
 });
 
 test("init includes editable default icon colors in new configs", async (t) => {
-  const root = await mkdtemp(path.join(tmpdir(), "safibook-init-"));
+  const root = await mkdtemp(path.join(tmpdir(), "doxen-init-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await init(root);
   const source = await readFile(path.join(root, "docs.config.ts"), "utf8");

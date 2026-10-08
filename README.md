@@ -1,4 +1,4 @@
-# Safibook
+# Doxen
 
 > 기존 저장소의 Markdown 폴더를 설정 파일 하나로 연결하는 npm 패키지입니다. Node.js 20.19 이상이 필요합니다. 현재 0.1.1 구현 기준입니다.
 
@@ -19,12 +19,12 @@ Yarn도 같은 패키지를 사용할 수 있습니다.
 
 ```bash
 yarn add -D @unana_dev/doxen
-yarn safibook init
+yarn doxen init
 yarn docs:dev
 yarn docs:build
 ```
 
-`docs`라는 실행 파일이 다른 의존성과 겹치면 동일한 CLI인 `safibook`을 사용하세요. 생성되는 스크립트는 충돌을 줄이기 위해 `safibook`을 사용합니다.
+`docs`라는 실행 파일이 다른 의존성과 겹치면 동일한 CLI인 `doxen`을 사용하세요. 생성되는 스크립트는 충돌을 줄이기 위해 `doxen`을 사용합니다.
 
 `init`은 기존 설정, 문서, 프로젝트 스크립트를 덮어쓰지 않습니다. 설정이 없으면 `docs/README.md`, `docs.config.ts`를 만들고 `docs:dev`, `docs:build` 스크립트를 추가합니다. `.gitignore`에는 생성물과 `node_modules`를 등록합니다. 이미 문서 폴더가 있다면 설정 파일의 경로만 연결하고 생성된 시작 문서는 필요에 따라 제거하세요.
 

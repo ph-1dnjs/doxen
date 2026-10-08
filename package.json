@@ -5,7 +5,7 @@
   "type": "module",
   "bin": {
     "docs": "bin/docs.js",
-    "safibook": "bin/docs.js"
+    "doxen": "bin/docs.js"
   },
   "exports": {
     ".": {

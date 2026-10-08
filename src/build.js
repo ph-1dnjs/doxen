@@ -14,7 +14,7 @@ import { collectSite } from "./content.js";
 import { inside } from "./config.js";
 
 const client = fileURLToPath(new URL("../client/", import.meta.url));
-const marker = ".safibook-output";
+const marker = ".doxen-output";
 
 export async function siteFiles(config, dev = false) {
   const { data, assets } = await collectSite(config);
@@ -36,7 +36,7 @@ export async function siteFiles(config, dev = false) {
     `<style>:root{--icon-background:${config.icon.background};--icon-color:${config.icon.color};--icon-border:${config.icon.border}}</style></head>`,
   );
   html = html.replace(
-    "<title>Safibook</title>",
+    "<title>Doxen</title>",
     `<title>${config.title.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</title>`,
   );
   if (config.description)
@@ -68,12 +68,12 @@ export async function build(config) {
     info &&
     (await readdir(out)).length &&
     !(await readFile(path.join(out, marker), "utf8").then(
-      (value) => value === "safibook\n",
+      (value) => value === "doxen\n",
       () => false,
     ))
   )
     throw new Error(
-      "기존 .docs-dist가 Safibook 빌드 폴더가 아니므로 덮어쓰지 않습니다.",
+      "기존 .docs-dist가 Doxen 빌드 폴더가 아니므로 덮어쓰지 않습니다.",
     );
   const files = await siteFiles(config);
   const temporary = await mkdtemp(path.join(config.root, ".docs-build-"));
@@ -83,7 +83,7 @@ export async function build(config) {
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, buffer);
     }
-    await writeFile(path.join(temporary, marker), "safibook\n");
+    await writeFile(path.join(temporary, marker), "doxen\n");
     await rm(out, { recursive: true, force: true });
     await rename(temporary, out);
   } finally {

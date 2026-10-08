@@ -25,14 +25,14 @@ export async function init(cwd) {
     if (!(await exists(path.join(cwd, "docs", "README.md"))))
       await writeFile(
         path.join(cwd, "docs", "README.md"),
-        "# 시작하기\n\n팀의 문서를 여기에 작성하세요.\n\n## 문서 연결\n\n설정 파일의 tabs에 문서 폴더를 추가하세요.\n\n:::search 용어 검색\n## 용어 사전\n\n| 용어 | 설명 |\n| --- | --- |\n| Safibook | 저장소 기반 문서 사이트 도구 |\n:::\n",
+        "# 시작하기\n\n팀의 문서를 여기에 작성하세요.\n\n## 문서 연결\n\n설정 파일의 tabs에 문서 폴더를 추가하세요.\n\n:::search 용어 검색\n## 용어 사전\n\n| 용어 | 설명 |\n| --- | --- |\n| Doxen | 저장소 기반 문서 사이트 도구 |\n:::\n",
         { flag: "wx" },
       );
   }
   pkg.scripts ||= {};
   for (const [name, command] of Object.entries({
-    "docs:dev": "safibook dev",
-    "docs:build": "safibook build",
+    "docs:dev": "doxen dev",
+    "docs:build": "doxen build",
   })) {
     if (pkg.scripts[name] && pkg.scripts[name] !== command)
       console.log(`기존 ${name} 스크립트를 유지합니다: ${pkg.scripts[name]}`);

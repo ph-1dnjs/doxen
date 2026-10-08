@@ -97,7 +97,7 @@ export async function dev(cwd, configPath, port = 4173) {
   const heartbeat = setInterval(() => {
     for (const client of clients) client.write(": heartbeat\n\n");
   }, 20000);
-  console.log(`Safibook → http://127.0.0.1:${server.address().port}`);
+  console.log(`Doxen → http://127.0.0.1:${server.address().port}`);
   return {
     server,
     async close() {
