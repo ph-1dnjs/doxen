@@ -98,6 +98,7 @@ export async function loadConfig(cwd, configPath) {
     tabs.push({ title: tab.title, slug: tab.slug, dir });
   }
   return {
+    deploy: config.deploy,
     title: config.title,
     description: config.description || "",
     icon,

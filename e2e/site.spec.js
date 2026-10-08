@@ -37,14 +37,14 @@ test("global Korean search locates a section and highlights matching content", a
 }) => {
   await page.goto("./");
   await page.locator("#open-search").click();
-  await page.getByRole("searchbox", { name: "전체 문서 검색" }).fill("정산");
+  await page.getByRole("searchbox", { name: "전체 문서 검색" }).fill("산출물");
   await expect(page.locator("#results .result")).toHaveCount(1);
   await expect(page.locator("#results .result strong")).toHaveText("용어 사전");
   await page.locator("#global-search").press("ArrowDown");
   await expect(page.locator("#results .result")).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#search-dialog")).not.toBeVisible();
-  await expect(page.locator("article mark")).toHaveText("정산");
+  await expect(page.locator("article mark")).toHaveText("산출물");
   await expect(page.locator("#page-count")).toHaveText("1 / 1");
   await expect(page).toHaveURL(/%EC%9A%A9%EC%96%B4-%EC%82%AC%EC%A0%84/);
   await page.locator("#open-search").click();
@@ -66,8 +66,8 @@ test("section search limits matches to its region and document search navigates 
   await expect(page.locator(".section-content mark")).toHaveCount(1);
   await expect(page.locator("article mark")).toHaveCount(1);
   await expect(page.locator(".match-count")).toHaveText("1 / 1");
-  await search.fill("정산");
-  await expect(page.locator("article mark")).toHaveText("정산");
+  await search.fill("산출물");
+  await expect(page.locator("article mark")).toHaveText("산출물");
   await page.locator(".document-find > summary").click();
   await page.locator("#page-search").fill("문서");
   await expect(search).toHaveValue("");
@@ -122,11 +122,11 @@ test("numbered sections have optional searches below headings", async ({
   await expect(page.locator("[data-section-search]")).toHaveCount(3);
   await expect(page.locator("article h2 + .search-section")).toHaveCount(3);
   await page
-    .getByRole("searchbox", { name: "사업자 정보 단계 검색", exact: true })
-    .fill("사업자");
+    .getByRole("searchbox", { name: "문서 준비 검색", exact: true })
+    .fill("문서");
   await expect(
     page.locator(".search-section").nth(0).locator("mark"),
-  ).toHaveCount(8);
+  ).toHaveCount(3);
   await expect(
     page.locator(".search-section").nth(1).locator("mark"),
   ).toHaveCount(0);
@@ -138,15 +138,15 @@ test("numbered sections have optional searches below headings", async ({
 test('section search filters table rows and restores them on clear', async ({ page }) => {
   await page.goto('./#/guide%2F03-section-template');
   const section = page.locator('.search-section').nth(0);
-  const input = page.getByRole('searchbox', {name: '사업자 정보 단계 검색', exact: true});
-  await expect(section.locator('tbody tr:visible')).toHaveCount(9);
-  await input.fill('사업자');
+  const input = page.getByRole('searchbox', {name: '문서 준비 검색', exact: true});
   await expect(section.locator('tbody tr:visible')).toHaveCount(6);
+  await input.fill('문서');
+  await expect(section.locator('tbody tr:visible')).toHaveCount(3);
   await expect(section.locator('thead')).toBeVisible();
   await expect(page.locator('.search-section').nth(1).locator('tbody tr:visible')).toHaveCount(5);
   await input.fill('없는검색어');
   await expect(section.locator('tbody tr:visible')).toHaveCount(0);
   await expect(section.locator('.match-count')).toHaveText('0 / 0');
   await input.fill('');
-  await expect(section.locator('tbody tr:visible')).toHaveCount(9);
+  await expect(section.locator('tbody tr:visible')).toHaveCount(6);
 });

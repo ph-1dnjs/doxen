@@ -33,6 +33,7 @@ export async function init(cwd) {
   for (const [name, command] of Object.entries({
     "docs:dev": "doxen dev",
     "docs:build": "doxen build",
+    "docs:deploy": "doxen deploy",
   })) {
     if (pkg.scripts[name] && pkg.scripts[name] !== command)
       console.log(`기존 ${name} 스크립트를 유지합니다: ${pkg.scripts[name]}`);

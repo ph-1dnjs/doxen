@@ -93,8 +93,26 @@ try {
     consumer,
   );
   assert.match(prompt, /표준 양식/);
+  await writeFile(
+    path.join(consumer, "docs.config.ts"),
+    `import {defineConfig} from '@unana_dev/doxen'; export default defineConfig({
+      title:'비공개 설치 테스트',tabs:[{title:'가이드',dir:'./docs',slug:'guide'}],
+      deploy:{project:'team-docs',access:{teamDomain:'https://team.cloudflareaccess.com',
+        audiences:['${"a".repeat(64)}'],emails:['member@example.com']}}
+    });`,
+  );
+  if (useYarn) yarn(["docs:build"]);
+  else run(["run", "docs:build"], consumer);
+  const routes = JSON.parse(await readFile(path.join(consumer, ".docs-dist", "_routes.json"), "utf8"));
+  assert.deepEqual(routes, { version: 1, include: ["/*"], exclude: [] });
+  const workerSource = await readFile(path.join(consumer, ".docs-dist", "_worker.js"), "utf8");
+  const worker = (await import(`data:text/javascript;base64,${Buffer.from(workerSource).toString("base64")}`)).default;
+  const blocked = await worker.fetch(new Request("https://team-docs.pages.dev/site.json"), {
+    ASSETS: { fetch: () => assert.fail("인증 없는 접근") },
+  });
+  assert.equal(blocked.status, 403);
   console.log(
-    `${useYarn ? "Yarn" : "npm"} 패키지 설치 검증 통과: ${pack.files.length}개 배포 파일, init → typed config → build → ai`,
+    `${useYarn ? "Yarn" : "npm"} 패키지 설치 검증 통과: ${pack.files.length}개 배포 파일, init → typed config → build → ai → protected build`,
   );
 } finally {
   await rm(root, { recursive: true, force: true });

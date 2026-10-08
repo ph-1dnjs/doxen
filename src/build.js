@@ -76,6 +76,10 @@ export async function build(config) {
       "기존 .docs-dist가 Doxen 빌드 폴더가 아니므로 덮어쓰지 않습니다.",
     );
   const files = await siteFiles(config);
+  if (config.deploy !== undefined) {
+    const { protectedFiles } = await import("./deploy.js");
+    for (const [name, buffer] of await protectedFiles(config.deploy)) files.set(name, buffer);
+  }
   const temporary = await mkdtemp(path.join(config.root, ".docs-build-"));
   try {
     for (const [name, buffer] of files) {

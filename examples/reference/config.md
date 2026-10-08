@@ -9,9 +9,9 @@ export default {
   title: '팀 문서',
   icon: { background: '#edf8ff', color: '#467792', border: '#bcdff8' },
   tabs: [
-    { title: '정책서', dir: './pharma', slug: 'pharma' },
-    { title: '프론트엔드', dir: './fe', slug: 'fe' },
-    { title: '백엔드', dir: './be', slug: 'be' },
+    { title: '시작하기', dir: './guide', slug: 'guide' },
+    { title: '작성 가이드', dir: './writing', slug: 'writing' },
+    { title: '레퍼런스', dir: './reference', slug: 'reference' },
   ],
 };
 ```

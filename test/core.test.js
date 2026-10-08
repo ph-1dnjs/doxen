@@ -20,10 +20,10 @@ import { prepareAi } from "../src/ai.js";
 import { matchesRow } from "../client/search.js";
 
 test("row filtering matches phrases, normalizes Korean and restores empty searches", () => {
-  assert.equal(matchesRow("사업자 번호 변경", "사업자"), true);
-  assert.equal(matchesRow("사업자 번호 변경", "번호 변경"), true);
-  assert.equal(matchesRow("사업자 번호 변경", "번호 없음"), false);
-  assert.equal(matchesRow("정산".normalize("NFD"), "정산"), true);
+  assert.equal(matchesRow("문서 번호 변경", "문서"), true);
+  assert.equal(matchesRow("문서 번호 변경", "번호 변경"), true);
+  assert.equal(matchesRow("문서 번호 변경", "번호 없음"), false);
+  assert.equal(matchesRow("빌드".normalize("NFD"), "빌드"), true);
   assert.equal(matchesRow("ＡＰＩ 오류", "api"), true);
   assert.equal(matchesRow("일반 행", "   "), true);
 });
@@ -40,7 +40,7 @@ async function fixture(t) {
   );
   await writeFile(
     path.join(root, "guide", "start.md"),
-    "# 시작하기\n\n안내 본문\n\n## 정산 정책\n\n정산은 매월 지급합니다.\n\n## 정산 정책\n\n중복 제목입니다.\n\n[API](../api/ref.md#조회)\n\n:::search 정책 검색\n## 환불\n\n환불은 7일 이내입니다.\n:::\n\n<script>alert(1)</script>\n\n[bad](javascript:alert(1))",
+    "# 시작하기\n\n안내 본문\n\n## 빌드 설정\n\n빌드 명령으로 사이트를 생성합니다.\n\n## 빌드 설정\n\n중복 제목입니다.\n\n[API](../api/ref.md#조회)\n\n:::search 설정 검색\n## 작성\n\nMarkdown으로 문서를 작성합니다.\n:::\n\n<script>alert(1)</script>\n\n[bad](javascript:alert(1))",
   );
   await writeFile(
     path.join(root, "api", "ref.md"),
@@ -87,15 +87,15 @@ test("TypeScript config, cross-tab links, unique Korean anchors and searchable c
   const doc = data.documents[0];
   assert.deepEqual(
     doc.toc.map((heading) => heading.anchor),
-    ["시작하기", "정산-정책", "정산-정책-1", "환불"],
+    ["시작하기", "빌드-설정", "빌드-설정-1", "작성"],
   );
   assert.match(doc.html, /href="#\/api%2Fref\/%EC%A1%B0%ED%9A%8C"/);
   assert.match(doc.html, /data-section-search/);
-  assert.match(doc.html, /<label for="section-search-0">정책 검색<\/label>/);
+  assert.match(doc.html, /<label for="section-search-0">설정 검색<\/label>/);
   assert.doesNotMatch(doc.html, /<script>|href="javascript:/);
   assert.equal(
-    searchDocuments(data.documents, "정산 지급")[0].section.anchor,
-    "정산-정책",
+    searchDocuments(data.documents, "빌드 생성")[0].section.anchor,
+    "빌드-설정",
   );
   assert.equal(
     searchDocuments(data.documents, "GET settlements")[0].doc.tab,
@@ -106,8 +106,8 @@ test("TypeScript config, cross-tab links, unique Korean anchors and searchable c
 });
 
 test("search normalizes decomposed Korean and fullwidth Latin while preserving highlight offsets", () => {
-  const source = "정산".normalize("NFD");
-  assert.deepEqual(matchRanges(`앞 ${source} 뒤`, "정산"), [
+  const source = "빌드".normalize("NFD");
+  assert.deepEqual(matchRanges(`앞 ${source} 뒤`, "빌드"), [
     [2, 2 + source.length],
   ]);
   assert.deepEqual(matchRanges("ＡＰＩ api API", "api"), [
@@ -115,7 +115,7 @@ test("search normalizes decomposed Korean and fullwidth Latin while preserving h
     [4, 7],
     [8, 11],
   ]);
-  assert.deepEqual(matchRanges("정산정책", "정산 정산정책"), [[0, 4]]);
+  assert.deepEqual(matchRanges("빌드설정", "빌드 빌드설정"), [[0, 4]]);
 });
 
 test("invalid or duplicate tab slugs and directories outside the root fail clearly", async (t) => {
@@ -367,9 +367,9 @@ test("AI preparation includes the standard template and source without modifying
   const prompt = await prepareAi(
     config,
     "guide/start.md",
-    "환불 절차를 표로 정리",
+    "작성 절차를 표로 정리",
   );
-  assert.match(prompt, /환불 절차를 표로 정리/);
+  assert.match(prompt, /작성 절차를 표로 정리/);
   assert.match(prompt, /## 표준 양식/);
   assert.match(prompt, /:::search 첫 번째 단계 검색/);
   assert.equal(await readFile(file, "utf8"), before);

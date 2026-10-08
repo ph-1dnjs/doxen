@@ -26,7 +26,7 @@ yarn docs:build
 
 `docs`라는 실행 파일이 다른 의존성과 겹치면 동일한 CLI인 `doxen`을 사용하세요. 생성되는 스크립트는 충돌을 줄이기 위해 `doxen`을 사용합니다.
 
-`init`은 기존 설정, 문서, 프로젝트 스크립트를 덮어쓰지 않습니다. 설정이 없으면 `docs/README.md`, `docs.config.ts`를 만들고 `docs:dev`, `docs:build` 스크립트를 추가합니다. `.gitignore`에는 생성물과 `node_modules`를 등록합니다. 이미 문서 폴더가 있다면 설정 파일의 경로만 연결하고 생성된 시작 문서는 필요에 따라 제거하세요.
+`init`은 기존 설정, 문서, 프로젝트 스크립트를 덮어쓰지 않습니다. 설정이 없으면 `docs/README.md`, `docs.config.ts`를 만들고 `docs:dev`, `docs:build`, `docs:deploy` 스크립트를 추가합니다. `.gitignore`에는 생성물과 `node_modules`를 등록합니다. 이미 문서 폴더가 있다면 설정 파일의 경로만 연결하고 생성된 시작 문서는 필요에 따라 제거하세요.
 
 ## 설정
 
@@ -36,9 +36,9 @@ export default {
   title: '팀 문서',
   icon: { background: '#edf8ff', color: '#467792', border: '#bcdff8' },
   tabs: [
-    { title: '정책서', dir: './pharma', slug: 'pharma' },
-    { title: '프론트엔드', dir: './fe', slug: 'fe' },
-    { title: '백엔드', dir: './be', slug: 'be' },
+    { title: '시작하기', dir: './guide', slug: 'guide' },
+    { title: '작성 가이드', dir: './writing', slug: 'writing' },
+    { title: '레퍼런스', dir: './reference', slug: 'reference' },
   ],
 };
 ```
@@ -62,7 +62,8 @@ export default {
 | `docs dev` | `http://127.0.0.1:4173` 미리보기와 변경 시 자동 새로고침 |
 | `docs dev --port 4200` | 포트 변경 |
 | `docs build` | 설정 파일 옆 `.docs-dist/`에 정적 사이트 생성 |
-| `docs build --config ./config/docs.config.ts` | 설정 파일 지정 (dev, ai에도 적용) |
+| `docs deploy` | 인증 설정 검사 → 빌드 → Cloudflare Pages 운영 배포 |
+| `docs build --config ./config/docs.config.ts` | 설정 파일 지정 (dev, deploy, ai에도 적용) |
 | `docs ai --file docs/guide.md --instruction "변경 요청"` | 표준 문서 양식과 AI 편집 작업 지침을 stdout에 출력 |
 
 빌드는 자체 생성 표시가 있는 출력 폴더만 교체합니다. 문서 변환에 실패하면 이전 성공 결과를 유지합니다. 출력에는 문서 HTML과 검색용 본문이 포함되므로 소스가 비공개라면 결과물도 비공개로 배포해야 합니다.
@@ -74,13 +75,13 @@ export default {
 결과를 선택하면 해당 문서와 제목 위치로 이동하며 일치하는 글자를 표시합니다. 문서 상단 검색창 또는 다음과 같은 섹션 검색창에서 이전·다음 버튼, Enter / Shift+Enter로 이동합니다. 검색은 현재 선택한 한 영역에 적용됩니다. 섹션 및 문서 내 검색은 입력한 문자열이 포함된 표의 본문 행만 남기고 나머지 행을 숨깁니다. 표 머리글은 유지하며 검색어를 지우면 모든 행을 복원합니다. 영문 대소문자와 한국어 Unicode 정규화를 적용하고 앞뒤 공백을 제외한 연속 문자열로 비교합니다. 표 밖의 본문은 숨기지 않고 일치 위치를 강조합니다.
 
 ```markdown
-## 1. 환불 정책
+## 1. 문서 작성
 
-:::search 정책 검색
+:::search 작성 방법 검색
 
-| 조건 | 처리 |
+| 작업 | 방법 |
 | --- | --- |
-| 결제 취소 | 정산 내역 확인 후 환불 |
+| 제목 추가 | Markdown 제목 문법 사용 |
 :::
 ```
 
@@ -95,28 +96,65 @@ export default {
 ## AI로 정해진 양식에 맞추기
 
 ```bash
-npx docs ai --file pharma/refund.md --instruction "현재 근거를 유지하고 환불 정책을 표로 정리" > /tmp/refund-prompt.txt
+npx docs ai --file guide/writing.md --instruction "현재 내용을 유지하고 문서 작성 방법을 표로 정리" > /tmp/writing-prompt.txt
 ```
 
 생성된 내용을 사용 중인 AI 코딩 도구에 전달하세요. 문서 정보 범위 → 번호별 단계 → 예외 → 관련 문서 순서의 양식과 기존 문서, 요청을 함께 제공합니다. 결과를 검토하여 Markdown에 반영한 다음 미리보기와 Git diff를 확인합니다.
 
 이 명령은 API를 호출하거나 파일을 자동 수정하지 않습니다. AI 제공자·모델·인증 설정이 정해지지 않아 현재 버전은 도구에 전달할 작업 지침 생성까지 제공합니다. 출력에 기존 문서 전문이 포함되므로 공유 범위는 원본 문서와 동일하게 취급하세요.
 
-## Cloudflare Pages 배포와 계정 제한
+## 명령 하나로 비공개 배포하기
 
-호스팅 계정 연결 및 Access 정책은 각 문서 프로젝트에서 설정합니다. 현재 저장소에는 실제 Cloudflare 프로젝트나 계정 정책이 연결되어 있지 않습니다.
+최초 설정 후 `npx doxen deploy` 또는 `npm run docs:deploy`로 Cloudflare Pages 운영 브랜치에 직접 배포합니다. Git push는 필요하지 않습니다. 기존 프로젝트는 `npx doxen init`을 다시 실행하면 배포 스크립트가 추가됩니다. 이 저장소 자체에는 실제 Cloudflare 계정이 연결되어 있지 않습니다.
 
-1. GitHub에 문서, 설정, package.json과 lockfile을 올립니다. 패키지 tgz를 로컬 절대 경로로 설치한 상태라면 npm에 게시된 버전으로 교체하거나, tgz를 저장소에 넣고 `file:./vendor/…tgz` 상대 경로로 설치하세요.
-2. Pages에 해당 Git 저장소를 연결합니다. 프레임워크는 None, 빌드 명령은 `npm run docs:build`, 출력 디렉터리는 `.docs-dist`, 프로덕션 브랜치는 `main`으로 설정합니다. Node 버전은 22 이상으로 지정합니다. Yarn 프로젝트는 해당 lockfile과 `yarn docs:build`를 사용합니다.
-3. 커스텀 도메인을 쓸 경우 먼저 Pages에 연결한 후 Access를 설정합니다.
-4. Pages의 **Enable access policy**를 활성화합니다. 이 기본 설정만으로 운영 주소가 보호되는 것은 아닙니다.
-5. 만들어진 Access 애플리케이션의 호스트에서 와일드카드를 제거해 `<project>.pages.dev`를 보호합니다. Pages에서 access policy를 다시 활성화해 `*.<project>.pages.dev` 미리보기 정책도 별도로 만듭니다.
-6. 커스텀 도메인은 Zero Trust에서 별도의 Self-hosted 애플리케이션으로 등록합니다. 각 호스트 전체에 허용 이메일·그룹 기반 Allow 정책을 적용하며 Bypass/Everyone 정책은 두지 않습니다.
-7. 로그아웃 또는 시크릿 창에서 운영·미리보기·커스텀 도메인의 `/`, `/site.json`, `/assets/...`를 각각 확인합니다. 미허용 계정이 내용을 읽을 수 없어야 합니다. 민감 문서는 이 확인을 마친 뒤 배포합니다.
+### 최초 설정
 
-`main`에 병합하면 Pages의 Git 연동으로 다시 빌드합니다. 롤백은 Pages의 이전 정상 배포를 선택하거나 Git 변경을 되돌립니다. 브라우저 코드에는 인증 비밀키를 넣지 않습니다.
+1. 문서 프로젝트에 `npm install -D wrangler@4`를 실행하고 Cloudflare에 Direct Upload 방식 Pages 프로젝트를 만듭니다. 민감 문서는 설정 완료 전 업로드하지 마세요. Git 연동 프로젝트는 자동 빌드에서도 같은 인증 설정을 사용해야 합니다.
+2. Cloudflare Zero Trust에서 로그인 방법(이메일 일회용 코드 또는 회사 IdP)을 설정합니다. Access 애플리케이션에 업무 사용자 이메일만 허용하는 Allow 정책을 만듭니다. Everyone/Bypass 정책은 사용하지 않습니다.
+3. 운영 `<project>.pages.dev`, 미리보기 `*.<project>.pages.dev`, 사용하는 커스텀 도메인 전체 경로를 Access로 보호합니다. Pages의 **Enable access policy**만 켜면 운영 주소는 보호되지 않습니다. 기본 정책의 와일드카드를 제거해 운영 주소를 보호하고, Pages에서 다시 정책을 활성화해 미리보기도 보호합니다. 커스텀 도메인은 별도 Self-hosted 애플리케이션으로 등록합니다.
+4. 각 Access 애플리케이션의 **Application Audience (AUD)**와 팀 도메인을 아래 설정에 입력합니다. `emails`에는 실제 열람할 업무 사용자만 등록합니다. 여기의 이메일 목록과 Access 정책 모두 통과해야 문서를 읽을 수 있습니다.
+5. Pages 프로젝트 Settings의 Functions 요청 한도 초과 동작을 운영·미리보기 모두 **Fail closed**로 설정합니다. 배포 명령은 API로 두 환경의 `fail_open: false`를 확인하며, 확인하지 못하면 업로드하지 않습니다.
+6. 해당 계정의 **Cloudflare Pages Edit** 권한을 가진 API 토큰을 만들고 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` 환경 변수로 제공합니다. 토큰을 설정 파일이나 Git에 넣지 마세요. 로그인용 Access 설정과 배포용 API 토큰은 별개입니다.
 
-공식 근거: [정적 HTML 배포](https://developers.cloudflare.com/pages/framework-guides/deploy-anything/), [미리보기 배포](https://developers.cloudflare.com/pages/configuration/preview-deployments/), [pages.dev·커스텀 도메인 Access 설정](https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain).
+```ts
+// docs.config.ts
+export default {
+  title: '팀 문서',
+  tabs: [{ title: '가이드', dir: './docs', slug: 'guide' }],
+  deploy: {
+    project: 'team-docs',
+    access: {
+      teamDomain: 'https://your-team.cloudflareaccess.com',
+      // 아래 값은 예시입니다. 각 호스트를 보호하는 애플리케이션의 실제 AUD로 교체하세요.
+      audiences: ['0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'],
+      emails: ['member@company.com'],
+    },
+  },
+};
+```
+
+```bash
+# 위 환경 변수를 셸 또는 CI의 비밀 변수로 설정한 뒤 실행
+npx doxen deploy
+# 또는
+npm run docs:deploy
+# Yarn
+yarn docs:deploy
+```
+
+`--config ./config/docs.config.ts`도 지원합니다. 배포 대상은 설정의 프로젝트와 해당 프로젝트의 운영 브랜치입니다. 기존 프로젝트의 Wrangler 설정과 functions 폴더는 사용하지 않습니다. 배포 도구는 사용자가 설치한 Wrangler 4를 사용하며 자동 설치하지 않습니다.
+
+### 접근 제한 범위
+
+`deploy` 설정이 있으면 `docs build`에도 Pages 서버 인증 코드(`_worker.js`)와 전체 경로 라우팅(`_routes.json`)이 포함됩니다. 서버는 Cloudflare Access JWT의 서명·발급자·AUD·만료와 허용 이메일을 검증한 뒤 파일을 제공합니다. HTML뿐 아니라 `/site.json`, JavaScript, 이미지, PDF도 같은 검사를 거칩니다. 인증 누락·위조·만료·비허용 이메일·인증 공개키 조회 실패 시 403으로 차단합니다. 응답은 `private, no-store`로 설정합니다. Cloudflare Cache Rules로 이를 덮어쓰지 마세요.
+
+로그인은 Cloudflare Access가 담당합니다. Access가 연결되지 않은 주소는 로그인 화면 대신 403을 반환합니다. 배포 후 시크릿 창에서 운영·미리보기·커스텀 도메인의 `/`, `/site.json`, 첨부파일 주소를 확인하세요. 허용 계정은 열람 가능하고 미허용 계정은 차단되어야 합니다. 실제 계정의 로그인과 정책 동작은 로컬 테스트로 확인할 수 없습니다.
+
+로컬 `docs dev`에는 인증이 적용되지 않습니다. `deploy` 설정 없는 `docs build`는 기존처럼 일반 정적 사이트를 만듭니다. 보호된 빌드도 일반 정적 호스팅에 복사하면 서버 인증이 실행되지 않으므로 반드시 Pages Functions로 배포하세요. 탭별 권한은 제공하지 않으며 모든 허용 사용자는 사이트 전체를 읽습니다.
+
+이메일 목록 변경은 다시 배포해야 반영됩니다. 과거 배포에는 당시 목록이 남으므로 퇴사자 등의 접근을 회수할 때는 모든 관련 Access 정책에서 제거하고 활성 세션을 취소하며, 필요하면 이전 배포도 삭제하세요. 롤백하면 이전 인증 목록도 돌아오므로 정책을 함께 확인하세요.
+
+공식 참고: [Pages Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), [서버에서 JWT 검증](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [전체 요청을 처리하는 Advanced mode](https://developers.cloudflare.com/pages/functions/advanced-mode/), [라우팅과 Fail closed](https://developers.cloudflare.com/pages/functions/routing/), [pages.dev Access 설정 주의사항](https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain).
 
 ## 패키지 개발·검증·게시
 
