@@ -9,7 +9,7 @@ Safibook은 저장소에 있는 Markdown을 팀의 문서 사이트로 연결합
 기존 프로젝트에 개발 의존성으로 설치하고 문서 폴더를 연결합니다.
 
 ```bash
-npm install -D @safience-una/safibook
+npm install -D @unana_dev/doxen
 npx docs init
 npx docs dev
 ```

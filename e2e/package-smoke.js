@@ -65,7 +65,7 @@ try {
   }
   await writeFile(
     path.join(consumer, "docs.config.ts"),
-    `import {defineConfig} from '@safience-una/safibook'; export default defineConfig({title:'설치 테스트',tabs:[{title:'가이드',dir:'./docs',slug:'guide'}]});`,
+    `import {defineConfig} from '@unana_dev/doxen'; export default defineConfig({title:'설치 테스트',tabs:[{title:'가이드',dir:'./docs',slug:'guide'}]});`,
   );
   if (useYarn) yarn(["docs:build"]);
   else run(["run", "docs:build"], consumer);

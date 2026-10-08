@@ -9,7 +9,7 @@
 npm 레지스트리에 배포된 패키지는 다음과 같이 설치합니다. 로컬 설치는 `npm pack`으로 만든 tgz 경로를 패키지명 대신 사용합니다.
 
 ```bash
-npm install -D @safience-una/safibook
+npm install -D @unana_dev/doxen
 npx docs init
 npm run docs:dev
 npm run docs:build
@@ -18,7 +18,7 @@ npm run docs:build
 Yarn도 같은 패키지를 사용할 수 있습니다.
 
 ```bash
-yarn add -D @safience-una/safibook
+yarn add -D @unana_dev/doxen
 yarn safibook init
 yarn docs:dev
 yarn docs:build
@@ -42,7 +42,7 @@ export default {
 };
 ```
 
-선택적으로 `import { defineConfig } from '@safience-una/safibook'`을 사용하면 타입 도움을 받을 수 있습니다. `.ts`, `.mjs`, `.js` 설정을 지원합니다. 설정 파일은 Node에서 실행되므로 신뢰할 수 있는 저장소에서 사용하세요.
+선택적으로 `import { defineConfig } from '@unana_dev/doxen'`을 사용하면 타입 도움을 받을 수 있습니다. `.ts`, `.mjs`, `.js` 설정을 지원합니다. 설정 파일은 Node에서 실행되므로 신뢰할 수 있는 저장소에서 사용하세요.
 
 - `dir`: 설정 파일 기준의 전용 하위 폴더. 저장소 루트 또는 외부 폴더는 허용하지 않습니다.
 - `slug`: 고유한 영문 소문자·숫자·하이픈. 문서 URL의 일부입니다.
