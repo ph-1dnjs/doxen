@@ -1,0 +1,53 @@
+{
+  "name": "@safience-una/safibook",
+  "version": "0.1.0",
+  "description": "Config-first Markdown documentation sites with Korean and section search",
+  "type": "module",
+  "bin": {
+    "docs": "bin/docs.js",
+    "safibook": "bin/docs.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "src",
+    "client",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "dev": "node bin/docs.js dev --config examples/docs.config.ts",
+    "build": "node bin/docs.js build --config examples/docs.config.ts",
+    "check": "node --check bin/docs.js && node --check client/app.js && npm test",
+    "test:browser": "playwright test",
+    "test:package": "node e2e/package-smoke.js"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "github-slugger": "^2.0.0",
+    "jiti": "^2.6.1",
+    "markdown-it": "^14.1.0",
+    "markdown-it-container": "^4.0.0",
+    "sanitize-html": "^2.17.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/safience-una/safibook.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  }
+}

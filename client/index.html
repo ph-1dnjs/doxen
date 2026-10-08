@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Safibook</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">본문으로 이동</a>
+    <header>
+      <a class="brand" href="#/" aria-label="문서 홈"
+        ><span class="brand-icon">S</span
+        ><span id="site-title">Safibook</span></a
+      ><button id="open-search" class="search-trigger">
+        문서 검색 <kbd>⌘ / Ctrl K</kbd></button
+      ><span class="header-label">TEAM KNOWLEDGE</span>
+    </header>
+    <nav id="tabs" aria-label="문서 탭"></nav>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="eyebrow">DOCUMENTATION</div>
+        <nav id="documents" aria-label="문서 목록"></nav>
+        <div class="powered">Made with <strong>Safibook</strong></div>
+      </aside>
+      <main id="content" tabindex="-1">
+        <div id="breadcrumb"></div>
+        <div class="document-tools">
+          <label for="page-search">이 문서에서 찾기</label
+          ><input
+            id="page-search"
+            type="search"
+            placeholder="검색어 입력"
+          /><span id="page-count" aria-live="polite"></span
+          ><button id="page-prev" aria-label="이전 일치">↑</button
+          ><button id="page-next" aria-label="다음 일치">↓</button>
+        </div>
+        <article id="article"></article>
+        <nav id="pagination" aria-label="이전 다음 문서"></nav>
+      </main>
+      <aside class="toc">
+        <div class="eyebrow">이 페이지에서</div>
+        <nav id="toc" aria-label="목차"></nav>
+      </aside>
+    </div>
+    <dialog id="search-dialog" aria-labelledby="search-title">
+      <div class="dialog-head">
+        <label id="search-title" for="global-search">전체 문서 검색</label
+        ><button id="close-search" aria-label="검색 닫기">
+          닫기 <kbd>Esc</kbd>
+        </button>
+      </div>
+      <input
+        id="global-search"
+        type="search"
+        placeholder="제목, 내용 또는 용어를 검색하세요"
+        autocomplete="off"
+      />
+      <p id="search-count" aria-live="polite"></p>
+      <div id="results"></div>
+    </dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
