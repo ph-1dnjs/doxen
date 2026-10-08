@@ -115,20 +115,27 @@ function renderNavigation() {
     $("#tabs").append(link);
   }
   $("#documents").replaceChildren();
-  let lastFolder;
+  const folders = new Map();
   for (const doc of site.documents.filter((item) => item.tab === activeTab)) {
-    const folder = doc.path.includes("/")
-      ? doc.path.slice(0, doc.path.lastIndexOf("/"))
-      : "";
-    if (folder && folder !== lastFolder)
-      $("#documents").append(
-        el("div", folder.replaceAll("/", " / "), "folder"),
-      );
-    lastFolder = folder;
+    let parent = $("#documents");
+    let key = "";
+    for (const part of doc.path.split("/").slice(0, -1)) {
+      key += `${part}/`;
+      if (!folders.has(key)) {
+        const group = el("details", undefined, "folder-group");
+        group.open = current?.path.startsWith(key) || false;
+        group.append(el("summary", part));
+        const children = el("div", undefined, "folder-children");
+        group.append(children);
+        parent.append(group);
+        folders.set(key, children);
+      }
+      parent = folders.get(key);
+    }
     const link = el("a", doc.title, doc.id === current?.id ? "selected" : "");
     link.href = route(doc.id);
     if (doc.id === current?.id) link.setAttribute("aria-current", "page");
-    $("#documents").append(link);
+    parent.append(link);
   }
 }
 
@@ -151,6 +158,7 @@ function render() {
   $("#pagination").replaceChildren();
   $("#page-search").value = "";
   finders = [];
+  $(".document-find").open = false;
   if (!current) {
     $("#article").replaceChildren(
       el(
@@ -176,7 +184,13 @@ function render() {
     `${site.tabs.find((tab) => tab.slug === current.tab).title} / ${current.path}`;
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
-  for (const heading of current.toc) {
+  // Existing containers with a leading heading also display the search below it.
+  for (const section of document.querySelectorAll(".search-section")) {
+    const heading =
+      section.querySelector(".section-content")?.firstElementChild;
+    if (heading && /^H[2-6]$/.test(heading.tagName)) section.before(heading);
+  }
+  for (const heading of current.toc.filter((item) => item.level > 1)) {
     const link = el("a", heading.title);
     link.href = route(current.id, heading.anchor);
     link.style.paddingLeft = `${Math.max(0, heading.level - 2) * 12}px`;
@@ -213,6 +227,7 @@ function render() {
       section.querySelector("[data-find-next]"),
     );
   if (pendingQuery) {
+    $(".document-find").open = true;
     $("#page-search").value = pendingQuery;
     $("#page-search").oninput();
     pendingQuery = "";

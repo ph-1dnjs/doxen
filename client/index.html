@@ -14,8 +14,8 @@
         ><span class="brand-icon">S</span
         ><span id="site-title">Safibook</span></a
       ><button id="open-search" class="search-trigger">
-        문서 검색 <kbd>⌘ / Ctrl K</kbd></button
-      ><span class="header-label">TEAM KNOWLEDGE</span>
+        <span>⌕ &nbsp; 검색...</span><kbd>⌘ / Ctrl K</kbd></button
+      ><span class="header-label"></span>
     </header>
     <nav id="tabs" aria-label="문서 탭"></nav>
     <div class="layout">
@@ -26,16 +26,19 @@
       </aside>
       <main id="content" tabindex="-1">
         <div id="breadcrumb"></div>
-        <div class="document-tools">
-          <label for="page-search">이 문서에서 찾기</label
-          ><input
-            id="page-search"
-            type="search"
-            placeholder="검색어 입력"
-          /><span id="page-count" aria-live="polite"></span
-          ><button id="page-prev" aria-label="이전 일치">↑</button
-          ><button id="page-next" aria-label="다음 일치">↓</button>
-        </div>
+        <details class="document-find">
+          <summary>이 문서에서 찾기</summary>
+          <div class="document-tools">
+            <label for="page-search">이 문서에서 찾기</label
+            ><input
+              id="page-search"
+              type="search"
+              placeholder="검색어 입력"
+            /><span id="page-count" aria-live="polite"></span
+            ><button id="page-prev" aria-label="이전 일치">↑</button
+            ><button id="page-next" aria-label="다음 일치">↓</button>
+          </div>
+        </details>
         <article id="article"></article>
         <nav id="pagination" aria-label="이전 다음 문서"></nav>
       </main>

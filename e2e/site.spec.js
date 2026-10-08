@@ -68,6 +68,7 @@ test("section search limits matches to its region and document search navigates 
   await expect(page.locator(".match-count")).toHaveText("1 / 1");
   await search.fill("정산");
   await expect(page.locator("article mark")).toHaveText("정산");
+  await page.locator(".document-find > summary").click();
   await page.locator("#page-search").fill("문서");
   await expect(search).toHaveValue("");
   const before = await page.locator("#page-count").innerText();
@@ -111,4 +112,25 @@ test("desktop and mobile layouts stay within the viewport", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("numbered sections have optional searches below headings", async ({
+  page,
+}) => {
+  await page.goto("./#/guide%2F03-section-template");
+  await expect(page.locator("article h2")).toHaveCount(4);
+  await expect(page.locator("[data-section-search]")).toHaveCount(3);
+  await expect(page.locator("article h2 + .search-section")).toHaveCount(3);
+  await page
+    .getByRole("searchbox", { name: "사업자 정보 단계 검색", exact: true })
+    .fill("사업자");
+  await expect(
+    page.locator(".search-section").nth(0).locator("mark"),
+  ).toHaveCount(8);
+  await expect(
+    page.locator(".search-section").nth(1).locator("mark"),
+  ).toHaveCount(0);
+  await expect(
+    page.locator(".search-section").nth(2).locator("mark"),
+  ).toHaveCount(0);
 });

@@ -245,7 +245,7 @@ test("AI preparation includes the standard template and source without modifying
   );
   assert.match(prompt, /환불 절차를 표로 정리/);
   assert.match(prompt, /## 표준 양식/);
-  assert.match(prompt, /:::search 상세 기준 검색/);
+  assert.match(prompt, /:::search 첫 번째 단계 검색/);
   assert.equal(await readFile(file, "utf8"), before);
   await assert.rejects(prepareAi(config, "docs.config.ts", "수정"), /Markdown/);
   await assert.rejects(prepareAi(config, "guide/start.md", ""), /변경 요청/);
