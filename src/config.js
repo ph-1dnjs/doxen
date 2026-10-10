@@ -1,6 +1,7 @@
 import { access, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { createJiti } from "jiti";
+import { readDeploymentState, deploymentFromState } from "./deploy-state.js";
 
 export async function loadConfig(cwd, configPath) {
   let file;
@@ -97,8 +98,12 @@ export async function loadConfig(cwd, configPath) {
     slugs.add(tab.slug);
     tabs.push({ title: tab.title, slug: tab.slug, dir });
   }
+  const deploymentState = await readDeploymentState(root, file);
+  if (deploymentState && config.deploy !== undefined)
+    throw new Error("docs.config의 deploy와 .doxen-deploy.json이 함께 있습니다. 사용할 배포 설정 하나만 유지하세요.");
   return {
-    deploy: config.deploy,
+    deploymentState,
+    deploy: config.deploy ?? deploymentFromState(deploymentState),
     title: config.title,
     description: config.description || "",
     icon,

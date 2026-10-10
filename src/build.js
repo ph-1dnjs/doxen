@@ -56,6 +56,8 @@ export async function siteFiles(config, dev = false) {
 }
 
 export async function build(config) {
+  if (config.deploymentState && !config.deploymentState.ready)
+    throw new Error("비공개 배포 설정이 아직 완료되지 않았습니다. npx doxen deploy를 다시 실행하세요.");
   const out = path.join(config.root, ".docs-dist");
   if (config.tabs.some((tab) => inside(tab.dir, out) || inside(out, tab.dir)))
     throw new Error(".docs-dist를 문서 폴더로 사용하거나 포함할 수 없습니다.");

@@ -37,5 +37,6 @@ icon: { background: '#f3e8ff', color: '#7e22ce', border: '#c084fc' },
 | `docs init` | 설정과 실행 스크립트 생성 |
 | `docs dev` | 로컬 미리보기와 파일 변경 감지 |
 | `docs build` | 정적 사이트 출력 |
+| `docs deploy` | 첫 실행 안내에 따라 비공개 배포 설정 후 배포, 이후 같은 명령으로 갱신 |
 
 로컬 서버의 기본 포트는 4173입니다. `--port 4200`으로 변경할 수 있습니다.

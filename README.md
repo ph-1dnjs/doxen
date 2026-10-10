@@ -1,6 +1,6 @@
 # Doxen
 
-> 기존 저장소의 Markdown 폴더를 설정 파일 하나로 연결하는 npm 패키지입니다. Node.js 20.19 이상이 필요합니다. 현재 0.1.1 구현 기준입니다.
+> 기존 저장소의 Markdown 폴더를 설정 파일 하나로 연결하는 npm 패키지입니다. Node.js 22 이상이 필요합니다. 현재 0.2.0 구현 기준입니다.
 
 상단 탭, 폴더별 문서 탐색, 목차, 한국어 전체 검색, 검색 위치 이동, 문서 및 지정 섹션 안에서 찾기 기능을 제공합니다. React/Vue 등 사용자 프로젝트의 프레임워크에 의존하지 않으며, 사이트 소스는 패키지 안에 있습니다.
 
@@ -105,56 +105,75 @@ npx docs ai --file guide/writing.md --instruction "현재 내용을 유지하고
 
 ## 명령 하나로 비공개 배포하기
 
-최초 설정 후 `npx doxen deploy` 또는 `npm run docs:deploy`로 Cloudflare Pages 운영 브랜치에 직접 배포합니다. Git push는 필요하지 않습니다. 기존 프로젝트는 `npx doxen init`을 다시 실행하면 배포 스크립트가 추가됩니다. 이 저장소 자체에는 실제 Cloudflare 계정이 연결되어 있지 않습니다.
-
-### 최초 설정
-
-1. 문서 프로젝트에 `npm install -D wrangler@4`를 실행하고 Cloudflare에 Direct Upload 방식 Pages 프로젝트를 만듭니다. 민감 문서는 설정 완료 전 업로드하지 마세요. Git 연동 프로젝트는 자동 빌드에서도 같은 인증 설정을 사용해야 합니다.
-2. Cloudflare Zero Trust에서 로그인 방법(이메일 일회용 코드 또는 회사 IdP)을 설정합니다. Access 애플리케이션에 업무 사용자 이메일만 허용하는 Allow 정책을 만듭니다. Everyone/Bypass 정책은 사용하지 않습니다.
-3. 운영 `<project>.pages.dev`, 미리보기 `*.<project>.pages.dev`, 사용하는 커스텀 도메인 전체 경로를 Access로 보호합니다. Pages의 **Enable access policy**만 켜면 운영 주소는 보호되지 않습니다. 기본 정책의 와일드카드를 제거해 운영 주소를 보호하고, Pages에서 다시 정책을 활성화해 미리보기도 보호합니다. 커스텀 도메인은 별도 Self-hosted 애플리케이션으로 등록합니다.
-4. 각 Access 애플리케이션의 **Application Audience (AUD)**와 팀 도메인을 아래 설정에 입력합니다. `emails`에는 실제 열람할 업무 사용자만 등록합니다. 여기의 이메일 목록과 Access 정책 모두 통과해야 문서를 읽을 수 있습니다.
-5. Pages 프로젝트 Settings의 Functions 요청 한도 초과 동작을 운영·미리보기 모두 **Fail closed**로 설정합니다. 배포 명령은 API로 두 환경의 `fail_open: false`를 확인하며, 확인하지 못하면 업로드하지 않습니다.
-6. 해당 계정의 **Cloudflare Pages Edit** 권한을 가진 API 토큰을 만들고 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` 환경 변수로 제공합니다. 토큰을 설정 파일이나 Git에 넣지 마세요. 로그인용 Access 설정과 배포용 API 토큰은 별개입니다.
-
-```ts
-// docs.config.ts
-export default {
-  title: '팀 문서',
-  tabs: [{ title: '가이드', dir: './docs', slug: 'guide' }],
-  deploy: {
-    project: 'team-docs',
-    access: {
-      teamDomain: 'https://your-team.cloudflareaccess.com',
-      // 아래 값은 예시입니다. 각 호스트를 보호하는 애플리케이션의 실제 AUD로 교체하세요.
-      audiences: ['0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'],
-      emails: ['member@company.com'],
-    },
-  },
-};
-```
+문서 프로젝트에서 다음 명령을 실행하세요. 최초에는 한국어 설정 안내가 나오고, 이후에는 같은 명령으로 수정한 문서를 다시 배포합니다. Node.js 22 이상이 필요하며 Wrangler는 Doxen에 포함되어 별도로 설치하지 않습니다.
 
 ```bash
-# 위 환경 변수를 셸 또는 CI의 비밀 변수로 설정한 뒤 실행
 npx doxen deploy
-# 또는
-npm run docs:deploy
-# Yarn
-yarn docs:deploy
+# 또는 npm run docs:deploy / yarn docs:deploy
 ```
 
-`--config ./config/docs.config.ts`도 지원합니다. 배포 대상은 설정의 프로젝트와 해당 프로젝트의 운영 브랜치입니다. 기존 프로젝트의 Wrangler 설정과 functions 폴더는 사용하지 않습니다. 배포 도구는 사용자가 설치한 Wrangler 4를 사용하며 자동 설치하지 않습니다.
+문서 설정이 아직 없다면 먼저 `npx doxen init`으로 문서 폴더를 준비하세요. 기존 프로젝트도 `init`을 다시 실행하면 배포 스크립트가 추가됩니다. `--config ./config/docs.config.ts`로 다른 문서 설정을 지정할 수 있습니다.
 
-### 접근 제한 범위
+### 첫 실행에서 하는 일
 
-`deploy` 설정이 있으면 `docs build`에도 Pages 서버 인증 코드(`_worker.js`)와 전체 경로 라우팅(`_routes.json`)이 포함됩니다. 서버는 Cloudflare Access JWT의 서명·발급자·AUD·만료와 허용 이메일을 검증한 뒤 파일을 제공합니다. HTML뿐 아니라 `/site.json`, JavaScript, 이미지, PDF도 같은 검사를 거칩니다. 인증 누락·위조·만료·비허용 이메일·인증 공개키 조회 실패 시 403으로 차단합니다. 응답은 `private, no-store`로 설정합니다. Cloudflare Cache Rules로 이를 덮어쓰지 마세요.
+1. **Cloudflare 연결:** 안내되는 [토큰 발급 화면](https://dash.cloudflare.com/profile/api-tokens)에서 로그인하고 배포용 API 토큰을 한 번 발급합니다. 터미널의 가려진 입력란에 붙여넣습니다. 환경 변수를 직접 설정할 필요는 없습니다.
+2. **계정 선택:** 접근 가능한 계정을 조회합니다. 여러 개면 사용할 계정을 선택합니다.
+3. **사이트 이름과 열람자 입력:** 새 사이트 이름과 열람할 업무 이메일을 입력합니다. 본인 이메일도 포함하세요. 기존 회사 로그인 방법이 있으면 선택하고, 없으면 이메일 일회용 코드 로그인을 준비합니다.
+4. **내용 확인:** 계정·사이트·열람자·업로드할 문서 폴더를 확인하고 진행합니다.
+5. **자동 준비와 배포:** Pages 프로젝트, 운영·미리보기 Access 애플리케이션, 허용 이메일 정책, Fail closed 설정을 준비하고 검증합니다. AUD와 팀 주소도 자동으로 가져옵니다. 이후 문서를 빌드하고 업로드합니다.
 
-로그인은 Cloudflare Access가 담당합니다. Access가 연결되지 않은 주소는 로그인 화면 대신 403을 반환합니다. 배포 후 시크릿 창에서 운영·미리보기·커스텀 도메인의 `/`, `/site.json`, 첨부파일 주소를 확인하세요. 허용 계정은 열람 가능하고 미허용 계정은 차단되어야 합니다. 실제 계정의 로그인과 정책 동작은 로컬 테스트로 확인할 수 없습니다.
+Cloudflare 계정 생성, 토큰 발급 및 계정에서 요구하는 Zero Trust 최초 약관·플랜 선택은 사용자가 진행해야 합니다. 도구는 유료 플랜을 구매하지 않습니다. 토큰에는 사용할 **계정 하나**를 지정하고 다음 권한을 부여하세요. 일반 Wrangler 브라우저 로그인만으로 이 Access 자동 설정을 대신하지 않습니다.
 
-로컬 `docs dev`에는 인증이 적용되지 않습니다. `deploy` 설정 없는 `docs build`는 기존처럼 일반 정적 사이트를 만듭니다. 보호된 빌드도 일반 정적 호스팅에 복사하면 서버 인증이 실행되지 않으므로 반드시 Pages Functions로 배포하세요. 탭별 권한은 제공하지 않으며 모든 허용 사용자는 사이트 전체를 읽습니다.
+| Account 권한 | 수준 | 용도 |
+| --- | --- | --- |
+| Account Settings | Read | 계정 조회 |
+| Cloudflare Pages | Edit | 프로젝트 생성·배포 |
+| Access: Apps and Policies | Edit | 접근 애플리케이션·허용 정책 생성·조회 |
+| Access: Organizations, Identity Providers, and Groups | Edit | 팀 주소 확인·생성 및 로그인 방법 준비 |
 
-이메일 목록 변경은 다시 배포해야 반영됩니다. 과거 배포에는 당시 목록이 남으므로 퇴사자 등의 접근을 회수할 때는 모든 관련 Access 정책에서 제거하고 활성 세션을 취소하며, 필요하면 이전 배포도 삭제하세요. 롤백하면 이전 인증 목록도 돌아오므로 정책을 함께 확인하세요.
+기존 회사 로그인 설정은 변경하지 않고 선택한 방법을 사용합니다. 로그인 방법이 없는 계정에는 확인 화면에 안내한 대로 이메일 일회용 코드 제공자를 추가합니다. 기존 Pages 프로젝트와 이름이 충돌하면 다른 이름을 선택해야 하며, 기존 사이트를 자동으로 인수하거나 덮어쓰지 않습니다.
 
-공식 참고: [Pages Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/), [서버에서 JWT 검증](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [전체 요청을 처리하는 Advanced mode](https://developers.cloudflare.com/pages/functions/advanced-mode/), [라우팅과 Fail closed](https://developers.cloudflare.com/pages/functions/routing/), [pages.dev Access 설정 주의사항](https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain).
+### 다음 배포와 저장 위치
+
+Markdown 수정 후 **같은 `npx doxen deploy` 명령**을 실행하세요. 설정이 완료되어 있으면 사이트 이름·이메일을 다시 묻지 않습니다. 기존 정책과 Fail closed 설정을 확인한 다음 운영 브랜치에 배포합니다. Git push는 필요하지 않습니다.
+
+- 프로젝트 설정은 문서 설정 파일 옆 `.doxen-deploy.json`에 저장합니다. 계정 ID, 사이트, 허용 이메일과 생성된 Access 식별자가 들어가며 API 토큰은 들어가지 않습니다. 기존 `docs.config.ts`를 수정하지 않습니다. 팀 저장소에 공유할 때는 이메일 목록의 공개 범위를 확인하세요.
+- macOS/Linux에서는 토큰을 이 컴퓨터에 저장할지 선택할 수 있습니다. 저장하면 `~/.config/doxen/accounts/<계정 ID>.json`에 **평문으로 저장**하며 디렉터리는 700, 파일은 600 권한을 사용합니다. OS 키체인 저장은 아닙니다. 저장하지 않으면 다음 실행에서 다시 입력합니다. Windows에서는 자동 저장을 제공하지 않습니다.
+- 저장된 토큰이 만료되거나 계정 권한이 거부되면 새 토큰 입력을 안내합니다. 토큰을 제거하려면 해당 계정 파일을 삭제하고, 효력을 없애려면 Cloudflare에서 토큰을 폐기하세요.
+- CI에서는 저장된 프로젝트 설정과 비밀 환경 변수 `CLOUDFLARE_API_TOKEN`을 사용합니다. `CLOUDFLARE_ACCOUNT_ID`를 함께 지정할 경우 저장된 계정과 같아야 합니다. 대화형 최초 설정은 CI에서 실행하지 않습니다.
+
+중간에 실패하면 생성된 자원의 식별자를 보존합니다. 같은 명령을 다시 실행하면 기록된 단계에서 이어갑니다. 설정이 미완료된 동안에는 일반 `docs build`도 차단합니다. 서버가 자원을 만들었지만 응답·로컬 기록에 실패한 경우에는 중복 생성이나 기존 사이트 덮어쓰기를 막기 위해 대시보드 확인이 필요할 수 있습니다. 자동으로 원격 자원을 삭제하지 않습니다.
+
+### 열람 권한과 운영 관리
+
+배포 이력·롤백·도메인은 Cloudflare Pages, 로그인·접근 정책은 Cloudflare One의 Access에서 관리합니다. 자동 설정은 기본 Pages 운영 주소와 미리보기 주소를 대상으로 합니다. 커스텀 도메인은 별도로 연결하고 Access로 보호해야 합니다.
+
+새 열람자는 **운영·미리보기 Access 정책과 `.doxen-deploy.json`의 `emails`에 모두 추가**한 뒤 재배포합니다. 도구는 재배포 때 정책을 임의로 덮어쓰지 않고 목록의 일치를 검사합니다. 퇴사자 등의 접근을 회수할 때는 모든 관련 Access 정책에서 제거하고 활성 세션을 취소한 다음 저장된 목록도 수정해 재배포하세요. 이전 배포에는 당시 목록이 남으므로 필요하면 이전 배포도 삭제합니다. 롤백하면 이전 목록도 돌아올 수 있습니다.
+
+허용 사용자는 사이트 전체를 읽습니다. 문서별·탭별 권한은 제공하지 않습니다. 자동 설정은 초기 연결 과정을 줄이는 기능이며, 별도의 열람자 관리 화면은 아직 없습니다.
+
+### 보호 방식과 기존 수동 설정
+
+배포 설정이 있으면 `docs build`에도 Pages 서버 인증 코드(`_worker.js`)와 전체 경로 라우팅(`_routes.json`)이 포함됩니다. 서버는 Cloudflare Access JWT의 서명·발급자·AUD·만료와 허용 이메일을 확인한 뒤 파일을 제공합니다. HTML, `/site.json`, 이미지, PDF 모두 보호하며 인증 실패·공개키 조회 실패는 403으로 차단합니다. 응답은 `private, no-store`로 설정합니다. Cache Rules로 이를 덮어쓰지 마세요.
+
+로그인은 Cloudflare Access가 담당합니다. Access가 연결되지 않은 주소는 로그인 화면 대신 403을 반환합니다. 배포 후 허용·미허용 계정으로 운영·미리보기 주소의 문서와 첨부파일 접근을 확인하세요. 실제 계정의 로그인과 정책 전파는 로컬 자동 테스트로 검증할 수 없습니다.
+
+로컬 `docs dev`에는 인증이 적용되지 않습니다. 배포 설정 없는 `docs build`는 일반 정적 사이트를 만듭니다. 보호된 빌드도 일반 정적 호스팅에서는 인증 코드가 실행되지 않으므로 Pages Functions로 배포해야 합니다.
+
+기존 `docs.config.ts`의 `deploy` 설정과 환경 변수 방식도 지원합니다. 자동 설정 파일과 수동 `deploy` 설정을 동시에 두지는 마세요. 수동 설정은 기존처럼 호스트별 Access 정책과 Fail closed를 관리자가 준비해야 합니다.
+
+```ts
+deploy: {
+  project: 'team-docs',
+  access: {
+    teamDomain: 'https://your-team.cloudflareaccess.com',
+    audiences: ['0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'],
+    emails: ['member@company.com'],
+  },
+},
+```
+
+공식 참고: [Pages 프로젝트 생성 API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/create/), [Access 애플리케이션 API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/access/subresources/applications/methods/create/), [Zero Trust 조직 API](https://developers.cloudflare.com/api/resources/zero_trust/subresources/organizations/methods/create/), [JWT 검증](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/), [Fail closed](https://developers.cloudflare.com/pages/functions/routing/).
 
 ## 패키지 개발·검증·게시
 

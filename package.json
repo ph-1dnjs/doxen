@@ -1,6 +1,6 @@
 {
   "name": "@unana_dev/doxen",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Config-first Markdown documentation sites with Korean and section search",
   "type": "module",
   "bin": {
@@ -21,7 +21,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22"
   },
   "scripts": {
     "test": "node --test test/*.test.js",
@@ -32,6 +32,7 @@
     "test:package": "node e2e/package-smoke.js"
   },
   "dependencies": {
+    "@inquirer/prompts": "7.10.1",
     "chokidar": "^4.0.3",
     "esbuild": "^0.28.2",
     "github-slugger": "^2.0.0",
@@ -39,7 +40,8 @@
     "jose": "^6.2.12",
     "markdown-it": "^14.1.0",
     "markdown-it-container": "^4.0.0",
-    "sanitize-html": "^2.17.0"
+    "sanitize-html": "^2.17.0",
+    "wrangler": "4.149.0"
   },
   "repository": {
     "type": "git",

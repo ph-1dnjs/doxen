@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPair, SignJWT, exportJWK, createLocalJWKSet } from "jose";
 import { accessWorker } from "../src/access-worker.js";
-import { deploy, checkProject, validateDeployment } from "../src/deploy.js";
+import { resolveWrangler, deploy, checkProject, validateDeployment } from "../src/deploy.js";
 import { init } from "../src/init.js";
 import { loadConfig } from "../src/config.js";
 import { build } from "../src/build.js";
@@ -123,7 +123,8 @@ test("deploy builds before invoking local Wrangler and propagates upload failure
   t.after(() => rm(root, { recursive: true, force: true }));
   await init(root);
   const config = { ...await loadConfig(root), deploy: settings };
-  await assert.rejects(deploy(config), /wrangler@4/);
+  assert.match(await readFile(resolveWrangler(config.root), "utf8"), /node/);
+  await assert.rejects(deploy(config, { env: {}, credentialDir: path.join(root, "credentials") }), /최초 배포 설정/);
   const wrangler = path.join(root, "node_modules", "wrangler");
   await mkdir(path.join(wrangler, "bin"), { recursive: true });
   await writeFile(path.join(wrangler, "package.json"), JSON.stringify({ name: "wrangler" }));

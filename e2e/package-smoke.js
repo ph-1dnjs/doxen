@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 
 const root = await mkdtemp(path.join(tmpdir(), "doxen-consumer-"));
@@ -111,8 +112,14 @@ try {
     ASSETS: { fetch: () => assert.fail("인증 없는 접근") },
   });
   assert.equal(blocked.status, 403);
+  const consumerRequire = createRequire(path.join(consumer, "package.json"));
+  const wranglerPackage = consumerRequire.resolve("wrangler/package.json");
+  const deployHelp = execFileSync(process.execPath, [path.join(path.dirname(wranglerPackage), "bin", "wrangler.js"), "pages", "deploy", "--help"], {
+    cwd: consumer, encoding: "utf8", env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+  });
+  assert.match(deployHelp, /--project-name/);
   console.log(
-    `${useYarn ? "Yarn" : "npm"} 패키지 설치 검증 통과: ${pack.files.length}개 배포 파일, init → typed config → build → ai → protected build`,
+    `${useYarn ? "Yarn" : "npm"} 패키지 설치 검증 통과: ${pack.files.length}개 배포 파일, init → typed config → build → ai → protected build → bundled deploy CLI`,
   );
 } finally {
   await rm(root, { recursive: true, force: true });

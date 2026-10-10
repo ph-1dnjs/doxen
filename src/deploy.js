@@ -67,16 +67,25 @@ export async function checkProject(deploy, env = process.env, fetcher = fetch) {
   return data.result;
 }
 
-export async function deploy(config) {
-  const settings = validateDeployment(config.deploy);
-  let wrangler;
+export function resolveWrangler(root) {
+  let packageFile;
   try {
-    const require = createRequire(path.join(config.root, "package.json"));
-    wrangler = require.resolve("wrangler/bin/wrangler.js");
+    packageFile = createRequire(path.join(root, "package.json")).resolve("wrangler/package.json");
   } catch {
-    throw new Error("배포 도구가 없습니다. 문서 프로젝트에서 npm install -D wrangler@4를 실행하세요.");
+    packageFile = createRequire(import.meta.url).resolve("wrangler/package.json");
   }
-  const project = await checkProject(settings);
+  return path.join(path.dirname(packageFile), "bin", "wrangler.js");
+}
+
+export async function deploy(config, options) {
+  if (Number(process.versions.node.split(".")[0]) < 22)
+    throw new Error("자동 배포에는 Node.js 22 이상이 필요합니다. Node.js를 업데이트한 뒤 다시 실행하세요.");
+  const { prepareDeployment } = await import("./deploy-setup.js");
+  const prepared = await prepareDeployment(config, options);
+  config = prepared.config;
+  const settings = validateDeployment(config.deploy);
+  const wrangler = resolveWrangler(config.root);
+  const project = await checkProject(settings, prepared.env);
   const out = await build(config);
   // Isolate Wrangler from unrelated project config, functions and redirects.
   const temporary = await mkdtemp(path.join(tmpdir(), "doxen-deploy-"));
@@ -89,7 +98,7 @@ export async function deploy(config) {
     await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [wrangler, "pages", "deploy", out,
         "--project-name", settings.project, "--branch", project.production_branch], {
-        cwd: temporary, stdio: "inherit", shell: false,
+        cwd: temporary, stdio: "inherit", shell: false, env: prepared.env,
       });
       child.once("error", reject);
       child.once("exit", (code, signal) => code === 0 ? resolve() :
@@ -98,5 +107,5 @@ export async function deploy(config) {
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
-  console.log(`배포 완료: https://${settings.project}.pages.dev (허용 계정으로 접근을 확인하세요.)`);
+  console.log(`배포 완료: https://${project.subdomain || `${settings.project}.pages.dev`} (허용 계정으로 접근을 확인하세요.)`);
 }
