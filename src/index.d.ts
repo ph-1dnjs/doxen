@@ -1,6 +1,7 @@
 export interface DocsConfig {
   title: string;
   description?: string;
+  color?: string;
   icon?: string | { background?: string; color?: string; border?: string };
   deploy?: {
     project: string;

@@ -261,6 +261,36 @@ test("a single icon color generates matching tones and supports short HEX", asyn
   }
 });
 
+test("site color supports HEX, inherits a single icon color and allows independent overrides", async (t) => {
+  const root = await fixture(t);
+  const source = { title: "팀 문서", tabs: [{ title: "안내", slug: "guide", dir: "./guide" }, { title: "API", slug: "api", dir: "./api" }] };
+  for (const [settings, expected] of [
+    [{}, undefined],
+    [{ icon: { color: "#ABC" } }, undefined],
+    [{ icon: "#eab308" }, "#eab308"],
+    [{ color: "#ABC" }, "#ABC"],
+    [{ color: "#000000" }, "#000000"],
+    [{ color: "#ffffff" }, "#ffffff"],
+    [{ color: "#7e22ce", icon: "#eab308" }, "#7e22ce"],
+    [{ color: "#7e22ce", icon: { color: "#123456" } }, "#7e22ce"],
+  ]) {
+    await writeFile(path.join(root, "docs.config.ts"), `export default ${JSON.stringify({ ...source, ...settings })}`);
+    const config = await loadConfig(root);
+    assert.equal(config.color, expected);
+    const html = (await siteFiles(config)).get("/index.html").toString();
+    assert.equal(html.includes("--accent:"), expected !== undefined);
+    if (expected) assert.ok(html.includes(`--accent:${expected};`));
+    if (settings.color === "#ABC")
+      assert.deepEqual(config.icon, { background: "#f7f8fa", border: "#dde4eb", color: "#5e6770" });
+    if (settings.icon === "#eab308") assert.equal(config.icon.color, "#816204");
+    if (typeof settings.icon === "object") assert.equal(config.icon.color, settings.icon.color);
+  }
+  for (const color of [null, 123, {}, "red", "#abcd", "#12345g", "#fff;}</style><script>"]) {
+    await writeFile(path.join(root, "docs.config.ts"), `export default ${JSON.stringify({ ...source, color })}`);
+    await assert.rejects(loadConfig(root), /color/);
+  }
+});
+
 test("init includes editable default icon colors in new configs", async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), "doxen-init-"));
   t.after(() => rm(root, { recursive: true, force: true }));

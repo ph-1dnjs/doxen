@@ -242,3 +242,19 @@ test("section tables filter by any cell and restore rows on clear", async ({ pag
   await input.fill("");
   await expect(section.locator("tbody tr:visible")).toHaveCount(6);
 });
+
+
+test("configured color reaches navigation, focus and search highlights", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.locator("#tabs a.active")).toHaveCSS("color", "rgb(234, 179, 8)");
+  await expect(page.locator("#documents a.selected")).toHaveCSS("color", "rgb(234, 179, 8)");
+  await expect(page.locator("#breadcrumb a").first()).toHaveCSS("color", "rgb(234, 179, 8)");
+  await page.locator("#open-search").click();
+  await page.locator("#global-search").fill("산출물");
+  await expect(page.locator("#global-search")).toHaveCSS("outline-color", "color(srgb 0.967059 0.880784 0.612549)");
+  const highlight = "color(srgb 0.979412 0.92549 0.757843)";
+  await expect(page.locator("#results mark").first()).toHaveCSS("background-color", highlight);
+  await page.locator("#results .result").click();
+  await expect(page.locator("article mark")).toHaveCSS("background-color", highlight);
+  await expect(page.locator("#tabs a.active")).toHaveCSS("border-bottom-color", "rgb(234, 179, 8)");
+});

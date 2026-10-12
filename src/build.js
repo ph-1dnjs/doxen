@@ -64,9 +64,12 @@ export async function siteFiles(config, dev = false) {
     '<span class="brand-icon">D</span',
     `<span class="brand-icon">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</span`,
   );
+  const theme = config.color
+    ? `;--accent:${config.color};--accent-soft:color-mix(in srgb, ${config.color} 8%, white);--accent-border:color-mix(in srgb, ${config.color} 40%, white);--accent-highlight:color-mix(in srgb, ${config.color} 25%, white)`
+    : "";
   html = html.replace(
     "</head>",
-    `<style>:root{--icon-background:${config.icon.background};--icon-color:${config.icon.color};--icon-border:${config.icon.border}}</style></head>`,
+    `<style>:root{--icon-background:${config.icon.background};--icon-color:${config.icon.color};--icon-border:${config.icon.border}${theme}}</style></head>`,
   );
   html = html.replace(
     "<title>Doxen</title>",

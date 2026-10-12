@@ -48,10 +48,14 @@ export async function loadConfig(cwd, configPath) {
     throw new Error("icon은 HEX 색상 또는 background, color, border를 설정하는 객체여야 합니다.");
   const icon = { background: "#edf8ff", color: "#467792", border: "#bcdff8" };
   const hexColor = /^#(?:[\da-f]{3}|[\da-f]{6})$/i;
-  if (typeof config.icon === "string") {
-    if (!hexColor.test(config.icon))
+  if (config.color !== undefined && (typeof config.color !== "string" || !hexColor.test(config.color)))
+    throw new Error("color는 #fff 또는 #ffffff 형식의 HEX 색상이어야 합니다.");
+  const color = config.color ?? (typeof config.icon === "string" ? config.icon : undefined);
+  const iconColor = config.icon ?? config.color;
+  if (typeof iconColor === "string") {
+    if (!hexColor.test(iconColor))
       throw new Error("icon은 #fff 또는 #ffffff 형식의 HEX 색상이어야 합니다.");
-    const hex = config.icon.slice(1);
+    const hex = iconColor.slice(1);
     const fullHex = hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex;
     const channels = fullHex.match(/../g).map((c) => parseInt(c, 16));
     const mix = (target, amount) =>
@@ -107,6 +111,7 @@ export async function loadConfig(cwd, configPath) {
     title: config.title,
     description: config.description || "",
     icon,
+    color,
     tabs,
     root,
     file,
