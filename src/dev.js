@@ -18,6 +18,7 @@ const types = {
   ".ico": "image/x-icon",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
+  ".woff2": "font/woff2",
 };
 
 export async function dev(cwd, configPath, port = 4173) {

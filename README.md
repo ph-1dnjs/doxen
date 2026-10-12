@@ -235,6 +235,7 @@ guide/
 
 - 표준 Markdown (제목, 목록, 강조 등)
 - 코드 블록, 표
+- Mermaid 코드 블록(`mermaid`): 시퀀스·흐름도 등을 다이어그램으로 표시합니다. 언어 지정 없이 `sequenceDiagram`으로 시작하는 코드 블록도 지원합니다. 문법 오류가 있으면 안내와 원본 코드를 표시합니다.
 - 다른 문서로의 상대 링크 (`[설치 방법](./02-installation.md)`)
 - 한국어 제목 앵커 (`#설치-방법`)
 - 이미지·PDF 첨부: PNG / JPEG / GIF / WebP / AVIF / ICO / PDF

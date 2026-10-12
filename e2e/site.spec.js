@@ -1,4 +1,51 @@
 import { test, expect } from "@playwright/test";
+import MarkdownIt from "markdown-it";
+
+test("Mermaid renders locally, preserves invalid sources and survives navigation", async ({ page }, testInfo) => {
+  const source = [
+    "# [개요] 회원가입 기능 흐름",
+    "> **범위:** `/signup`에서 사업자 정보 확인, 회원·담당자 정보 입력, SMS 인증, 약관 동의, 가입 완료까지의 현재 프론트엔드 흐름 기준",
+    "---",
+    "## 1. 기능 목적",
+    "- 신규 사업자의 사업자등록번호를 검증하고 사업자·계정·담당자 정보를 수집합니다.\n- 아이디 중복 확인과 담당자 SMS 인증, 필수 약관 동의가 모두 완료된 경우에만 가입을 요청합니다.\n- 기존 회원은 신규 가입이 아닌 계정 연동 흐름으로 안내합니다.",
+    "## 2. 전체 구성",
+    "| 단계 | 주요 입력·행동 | 완료 조건 |\n| --- | --- | --- |\n| **01 사업자 정보** | 상호명, 사업자등록번호 조회, 대표자·업태·주소·사업자등록증 등 입력 | 가입 가능한 사업자 검증과 필수 사업자 정보 입력 |\n| **02 회원 정보** | 아이디 중복확인, 비밀번호, 담당자·SMS 인증, 세금계산서 이메일, 약관 동의 | 아이디·SMS 인증·필수 약관 동의 완료 |\n| **가입 완료** | 가입 아이디·담당자 정보 요약과 관리자 검토 안내 표시 | 메인으로 돌아가기 |",
+    "## 3. 클라이언트 · 서버 요청 흐름",
+    "```mermaid\nsequenceDiagram\n    autonumber\n    participant C as 클라이언트\n    participant S as 서버\n    C->>S: 사업자 정보 확인\n    S-->>C: 검증 결과\n    C->>S: 회원가입 요청\n    S-->>C: 가입 완료\n```",
+    "```\nsequenceDiagram\n    A->>B: 언어 표시 없는 시퀀스\n```",
+    "```mermaid\nflowchart LR\n    A[입력] --> B[완료]\n```",
+    "```mermaid\ninvalid diagram syntax\n```",
+    "```js\nconst message = '일반 코드는 유지';\n```",
+  ].join("\n\n");
+  await page.route("**/site.json", async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.documents[0].html = new MarkdownIt().render(source);
+    data.documents[0].title = "[개요] 회원가입 기능 흐름";
+    await route.fulfill({ json: data });
+  });
+  const external = [];
+  page.on("request", (request) => {
+    if (!request.url().startsWith("http://127.0.0.1:")) external.push(request.url());
+  });
+  await page.setViewportSize({ width: 2048, height: 1200 });
+  await page.goto("./");
+  await expect(page.locator(".diagram svg")).toHaveCount(3);
+  await expect(page.locator(".diagram").first()).toContainText("사업자 정보 확인");
+  await expect(page.locator(".diagram-error")).toHaveCount(1);
+  await expect(page.locator("pre code.language-mermaid")).toHaveText("invalid diagram syntax\n");
+  await expect(page.locator("pre code.language-js")).toContainText("일반 코드는 유지");
+  expect(await page.evaluate(() => document.fonts.check('16px "Noto Sans KR Variable"', "회원가입"))).toBe(true);
+  expect(external).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath("signup-desktop.png") });
+  await page.locator(".diagram").first().screenshot({ path: testInfo.outputPath("sequence-diagram.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator("#tabs").getByRole("link", { name: "레퍼런스" }).click();
+  await expect(page.locator(".diagram")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator(".diagram svg")).toHaveCount(3);
+});
 
 test("folders show immediate child cards and sidebar labels follow the active tab", async ({ page }, testInfo) => {
   const documents = [

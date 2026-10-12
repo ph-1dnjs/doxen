@@ -25,7 +25,7 @@ function highlight(root, query) {
   clearMarks(root);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
-      return node.parentElement.closest(".section-tools, script, style, [hidden]")
+      return node.parentElement.closest(".section-tools, pre, .diagram, script, style, [hidden]")
         ? NodeFilter.FILTER_REJECT
         : NodeFilter.FILTER_ACCEPT;
     },
@@ -241,6 +241,10 @@ function render() {
   });
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
+  for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
+    if (/^version\s*:\s*\S+/i.test(heading.textContent.trim()))
+      heading.classList.add("document-version");
+  }
   // Existing containers with a leading heading also display the search below it.
   for (const section of document.querySelectorAll(".search-section")) {
     const heading =
@@ -269,6 +273,15 @@ function render() {
     $("#pagination").append(link);
   }
   attachTableSearches();
+  const diagrams = [...$("#article").querySelectorAll("pre > code")].filter(
+    (code) => code.classList.contains("language-mermaid") ||
+      (!code.className && /^\s*sequenceDiagram\b/.test(code.textContent)),
+  );
+  if (diagrams.length) {
+    import("./diagrams.js").then(({ renderDiagrams }) => renderDiagrams(diagrams)).catch(() => {
+      // Keep the original code readable if the renderer cannot be loaded.
+    });
+  }
   if (pendingQuery) {
     highlight($("#article"), pendingQuery);
     pendingQuery = "";

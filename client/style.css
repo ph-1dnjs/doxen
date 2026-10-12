@@ -1,9 +1,9 @@
 :root {
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
-  color: #26292d;
+    "Noto Sans KR Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #242628;
   background: white;
-  line-height: 1.7;
+  line-height: 1.5;
   --line: #e1e6eb;
   --muted: #818891;
   --blue: #009dff;
@@ -56,12 +56,12 @@ summary:focus-visible {
   outline-offset: 3px;
 }
 header {
-  max-width: 1360px;
+  max-width: 1424px;
   margin: auto;
-  height: 64px;
+  height: 68px;
   display: grid;
-  grid-template-columns: 290px minmax(0, 768px) 224px;
-  gap: 40px;
+  grid-template-columns: 288px minmax(0, 768px) 224px;
+  gap: 48px;
   align-items: center;
   padding: 0 24px;
 }
@@ -71,7 +71,7 @@ header {
   gap: 12px;
   color: #24272b;
   font-size: 19px;
-  font-weight: 650;
+  font-weight: 600;
 }
 .brand-icon {
   display: grid;
@@ -86,20 +86,22 @@ header {
   line-height: 1;
 }
 .search-trigger {
-  width: min(100%, 440px);
+  width: min(100%, 422px);
   display: flex;
   justify-content: space-between;
   align-items: center;
   border: 1px solid #d1dbe5;
-  border-radius: 13px;
+  border-radius: 12px;
   padding: 8px 12px;
   box-shadow: 0 1px 3px #182b4010;
   color: #939ca6;
   text-align: left;
-  font-size: 13px;
+  font-size: 14px;
 }
 kbd {
-  font: 10px inherit;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 18px;
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 1px 4px;
@@ -109,13 +111,13 @@ kbd {
   display: flex;
   gap: 32px;
   height: 44px;
-  padding: 0 max(24px, calc((100% - 1312px) / 2));
+  padding: 0 max(24px, calc((100% - 1376px) / 2));
   border-bottom: 1px solid #ebedf0;
   overflow: auto;
 }
 #tabs a {
   padding: 10px 0 9px;
-  font-size: 13px;
+  font-size: 14px;
   color: #858b93;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
@@ -126,9 +128,9 @@ kbd {
 }
 .layout {
   display: grid;
-  grid-template-columns: 290px minmax(0, 768px) 224px;
-  gap: 40px;
-  max-width: 1360px;
+  grid-template-columns: 288px minmax(0, 768px) 224px;
+  gap: 48px;
+  max-width: 1424px;
   padding: 0 24px;
   margin: auto;
 }
@@ -140,9 +142,9 @@ kbd {
   padding: 34px 14px 30px 0;
 }
 .eyebrow {
-  font-size: 12px;
+  font-size: 14px;
   color: #8a9098;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   letter-spacing: 0;
 }
 .powered {
@@ -153,7 +155,7 @@ kbd {
 #documents a {
   display: block;
   padding: 6px 12px 6px 20px;
-  font-size: 13px;
+  font-size: 14px;
   color: #7d8289;
   border-left: 1px solid var(--line);
   overflow-wrap: anywhere;
@@ -165,19 +167,21 @@ kbd {
 .folder-group summary {
   list-style: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   color: #797f87;
-  padding: 7px 14px 7px 20px;
+  padding: 7px 14px 7px 0;
   position: relative;
 }
 .folder-group summary::after {
   content: "›";
   position: absolute;
   right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #b0b7bf;
 }
 .folder-group[open] > summary::after {
-  transform: rotate(90deg);
+  transform: translateY(-50%) rotate(90deg);
 }
 .folder-group summary::-webkit-details-marker {
   display: none;
@@ -190,7 +194,7 @@ kbd {
   padding-left: 20px;
 }
 .folder-children {
-  margin-left: 20px;
+  margin-left: 8px;
   border-left: 1px solid var(--line);
 }
 .folder-children > a {
@@ -199,7 +203,7 @@ kbd {
 main {
   position: relative;
   min-width: 0;
-  padding: 30px 0 64px;
+  padding: 26px 0 64px;
 }
 #breadcrumb {
   font-size: 13px;
@@ -236,17 +240,22 @@ main {
   color: #1890ff;
 }
 article {
-  font-size: 14px;
-  line-height: 1.85;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  letter-spacing: -0.2px;
   overflow-wrap: anywhere;
 }
 article h1 {
   font-size: 32px;
-  letter-spacing: -1.1px;
+  letter-spacing: -0.8px;
   line-height: 1.4;
-  margin: 10px 0 25px;
+  margin: 12px 0 24px;
   color: #1e2023;
-  font-weight: 700;
+  font-weight: 650;
+}
+article strong {
+  font-weight: 600;
 }
 .folder-cards {
   display: grid;
@@ -283,41 +292,63 @@ article h1 {
   display: none;
 }
 article h2 {
-  font-size: 26px;
-  letter-spacing: -0.7px;
-  margin: 46px 0 18px;
+  font-size: 28px;
+  letter-spacing: -0.6px;
+  margin: 44px 0 20px;
   line-height: 1.5;
-  font-weight: 650;
+  font-weight: 500;
 }
 article h3 {
-  font-size: 19px;
-  margin: 28px 0 14px;
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 600;
+  margin: 28px 0 20px;
 }
 article :is(h1, h2, h3, h4, h5, h6) {
   scroll-margin-top: 24px;
 }
+article .document-version {
+  margin: 0 0 20px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f9fa;
+  color: #b45309;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+article hr:has(+ .document-version) {
+  display: none;
+}
 article p {
-  color: #646c76;
+  color: #4b5055;
   margin: 16px 0;
 }
 article blockquote {
-  margin: 24px 0 20px;
-  padding: 1px 22px;
+  margin: 20px 0;
+  padding: 12px 24px;
   border-left: 2px solid #d6dfe6;
   color: #727b85;
 }
 article blockquote p {
+  margin: 0;
   color: #727b85;
 }
 article hr {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 24px 0 42px;
+  margin: 20px 0 28px;
 }
 article ul,
 article ol {
   padding-left: 24px;
-  color: #626b75;
+  color: #4b5055;
+}
+article li + li {
+  margin-top: 8px;
 }
 article pre {
   overflow: auto;
@@ -344,7 +375,7 @@ article table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   margin: 12px 0 22px;
   table-layout: fixed;
@@ -352,32 +383,47 @@ article table {
 article th,
 article td {
   text-align: left;
-  padding: 9px 12px;
-  vertical-align: top;
+  padding: 8px 12px;
+  vertical-align: middle;
   overflow-wrap: anywhere;
 }
 article th {
   background: #f5f7f9;
   border-block: 1px solid var(--line);
-  font-weight: 500;
-}
-article th:first-child {
-  border-left: 1px solid var(--line);
-  border-radius: 9px 0 0 9px;
-}
-article th:last-child {
-  border-right: 1px solid var(--line);
-  border-radius: 0 9px 9px 0;
+  font-weight: 600;
 }
 article td {
   border-bottom: 1px solid var(--line);
-  color: #4b5158;
+  color: #242628;
+}
+article th:first-child {
+  border-left: 1px solid var(--line);
+  border-radius: 8px 0 0 8px;
+}
+article th:last-child {
+  border-right: 1px solid var(--line);
+  border-radius: 0 8px 8px 0;
 }
 article td + td {
   border-left: 1px solid var(--line);
 }
 article tr:last-child td {
   border-bottom: 0;
+}
+.diagram {
+  margin: 24px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}
+.diagram-error {
+  font-size: 14px;
+  color: #b45309;
 }
 article img {
   max-width: 100%;
@@ -397,11 +443,18 @@ article img {
   position: relative;
   font-size: 11px;
 }
+.search-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-label::before,
 .section-tools::before {
-  content: "⌕";
-  font-size: 20px;
-  line-height: 1;
-  color: #7e8a96;
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23727b85' stroke-width='1.3'%3E%3Ccircle cx='6.8' cy='6.8' r='5.2'/%3E%3Cpath d='m10.7 10.7 3.8 3.8'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .section-tools:focus-within {
   border-color: #acd3f0;
@@ -424,7 +477,7 @@ article img {
   box-shadow: none;
   padding: 2px 3px;
   border-radius: 3px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .section-content > :first-child {
   margin-top: 12px;
@@ -437,12 +490,12 @@ article img {
   overflow: auto;
 }
 .toc .eyebrow {
-  font-size: 11px;
+  font-size: 12px;
 }
 #toc a {
   display: block;
-  color: #858c96;
-  font-size: 12px;
+  color: #7d8289;
+  font-size: 14px;
   margin: 15px 0;
   line-height: 1.8;
 }
@@ -475,7 +528,7 @@ article img {
 }
 #pagination strong {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 mark {
@@ -609,7 +662,7 @@ dialog::backdrop {
     grid-template-columns: minmax(0, 1fr);
   }
   article h2 {
-    font-size: 23px;
+    font-size: 21px;
   }
   article table {
     font-size: 12px;

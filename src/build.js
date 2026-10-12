@@ -12,9 +12,34 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectSite } from "./content.js";
 import { inside } from "./config.js";
+import { build as bundle } from "esbuild";
 
 const client = fileURLToPath(new URL("../client/", import.meta.url));
 const marker = ".doxen-output";
+let presentationAssets;
+
+function getPresentationAssets() {
+  return presentationAssets ||= bundle({
+    entryPoints: {
+      diagrams: path.join(client, "diagrams.js"),
+      fonts: path.join(client, "fonts.css"),
+    },
+    bundle: true,
+    splitting: true,
+    format: "esm",
+    platform: "browser",
+    target: "es2022",
+    minify: true,
+    outdir: path.join(client, "generated"),
+    assetNames: "fonts/[name]-[hash]",
+    chunkNames: "chunks/[name]-[hash]",
+    loader: { ".woff2": "file" },
+    write: false,
+  }).catch((error) => {
+    presentationAssets = undefined;
+    throw error;
+  });
+}
 
 export async function siteFiles(config, dev = false) {
   const { data, assets } = await collectSite(config);
@@ -30,6 +55,10 @@ export async function siteFiles(config, dev = false) {
   );
   for (const name of ["index.html", "app.js", "style.css", "search.js"])
     files.set(`/${name}`, await readFile(path.join(client, name)));
+  for (const output of (await getPresentationAssets()).outputFiles) {
+    const name = path.relative(path.join(client, "generated"), output.path).split(path.sep).join("/");
+    files.set(`/${name}`, Buffer.from(output.contents));
+  }
   let html = files.get("/index.html").toString();
   html = html.replace(
     '<span class="brand-icon">D</span',
