@@ -45,6 +45,12 @@ function fakeCloud() {
     },
     async send(route, method, body) {
       calls.push([method, route, body]);
+      if (method === "PUT" && route.includes("/policies/")) {
+        const app = apps.get(route.split("/").at(-3));
+        assert.equal(app.policies[0].id, route.split("/").at(-1));
+        app.policies[0] = { ...body, id: app.policies[0].id };
+        return app.policies[0];
+      }
       if (route.endsWith("/pages/projects")) {
         assert.equal(body.deployment_configs.production.fail_open, false);
         assert.equal(body.deployment_configs.preview.fail_open, false);
@@ -59,6 +65,7 @@ function fakeCloud() {
       if (route.endsWith("/access/apps")) {
         if (failPreview && body.domain.startsWith("*")) throw new Error("network unavailable");
         const app = { ...body, id: randomUUID(), aud: (apps.size ? "c" : "a").repeat(64) };
+        app.policies = app.policies.map((policy) => ({ ...policy, id: randomUUID() }));
         apps.set(app.id, app);
         return app;
       }
@@ -227,4 +234,62 @@ test("an expired saved token can be replaced without editing files", async (t) =
   });
   assert.equal(prepared.env.CLOUDFLARE_API_TOKEN, env.CLOUDFLARE_API_TOKEN);
   assert(prompt.messages.includes("새 API 토큰"));
+});
+
+
+test("JSON email additions and removals synchronize both policies and are idempotent", async (t) => {
+  const config = await fixture(t);
+  const cloud = fakeCloud();
+  const options = { env, prompt: prompts(), apiFactory: () => cloud.api, log: silent };
+  await prepareDeployment(config, options);
+  const loaded = await loadConfig(config.root);
+  for (const emails of [["member@example.com", "new@example.com"], ["new@example.com"]]) {
+    loaded.deploymentState.emails = emails;
+    cloud.calls.length = 0;
+    const result = await prepareDeployment(loaded, options);
+    assert.deepEqual(result.config.deploy.access.emails, emails);
+    assert.equal(cloud.calls.filter(([method]) => method === "PUT").length, 2);
+    for (const app of cloud.apps.values())
+      assert.deepEqual(app.policies[0].include, emails.map((email) => ({ email: { email } })));
+    cloud.calls.length = 0;
+    await prepareDeployment(loaded, options);
+    assert(!cloud.calls.some(([method]) => method === "PUT"));
+  }
+});
+
+test("sync checks both apps before writing and refuses custom conditions or empty emails", async (t) => {
+  const config = await fixture(t);
+  const cloud = fakeCloud();
+  const options = { env, prompt: prompts(), apiFactory: () => cloud.api, log: silent };
+  await prepareDeployment(config, options);
+  const loaded = await loadConfig(config.root);
+  loaded.deploymentState.emails.push("new@example.com");
+  const preview = [...cloud.apps.values()][1];
+  preview.policies[0].require = [{ email_domain: { domain: "example.com" } }];
+  cloud.calls.length = 0;
+  await assert.rejects(prepareDeployment(loaded, options), /별도 조건/);
+  assert(!cloud.calls.some(([method]) => method === "PUT"));
+  loaded.deploymentState.emails = [];
+  await assert.rejects(prepareDeployment(loaded, options), /하나 이상/);
+  assert(!cloud.calls.some(([method]) => method === "PUT"));
+});
+
+test("partial email sync failure stops deployment and next attempt repairs the remaining policy", async (t) => {
+  const config = await fixture(t);
+  const cloud = fakeCloud();
+  const options = { env, prompt: prompts(), apiFactory: () => cloud.api, log: silent };
+  await prepareDeployment(config, options);
+  const loaded = await loadConfig(config.root);
+  loaded.deploymentState.emails.push("new@example.com");
+  const send = cloud.api.send;
+  let writes = 0;
+  cloud.api.send = async (...args) => {
+    if (args[1] === "PUT" && ++writes === 2) throw new Error("sync unavailable");
+    return send(...args);
+  };
+  await assert.rejects(prepareDeployment(loaded, options), /sync unavailable/);
+  cloud.api.send = send;
+  cloud.calls.length = 0;
+  await prepareDeployment(loaded, options);
+  assert.equal(cloud.calls.filter(([method]) => method === "PUT").length, 1);
 });

@@ -7,7 +7,7 @@ const tokenUrl = "https://dash.cloudflare.com/profile/api-tokens";
 const accountPattern = /^[a-f0-9]{32}$/i;
 const projectPattern = /^[a-z0-9][a-z0-9-]{0,57}[a-z0-9]$/;
 export const parseEmails = (text) => [...new Set(text.split(/[\s,;]+/).filter(Boolean).map((email) => email.toLowerCase()))];
-const validEmails = (emails) => emails.length > 0 && emails.every((email) => /^[^\s@*]+@[^\s@*]+\.[^\s@*]+$/.test(email));
+const validEmails = (emails) => emails.length > 0 && emails.every((email) => typeof email === "string" && /^[^\s@*]+@[^\s@*]+\.[^\s@*]+$/.test(email));
 
 export async function terminalPrompts() {
   if (!process.stdin.isTTY || !process.stdout.isTTY)
@@ -71,13 +71,17 @@ export async function provision(config, state, api, log = console.log) {
     state.apps[kind] = { id: app.id, aud: app.aud };
     await persist();
   }
-  await verifySetup(state, api);
+  await verifySetup(state, api, { syncEmails: true, log });
   state.ready = true;
   await persist();
   return validateDeployment(deploymentFromState(state));
 }
 
-export async function verifySetup(state, api) {
+export async function verifySetup(state, api, { syncEmails = false, log = console.log } = {}) {
+  if (!Array.isArray(state.emails) || !validEmails(state.emails))
+    throw new Error("emails에 허용할 이메일을 하나 이상 입력하세요.");
+  const desired = [...new Set(state.emails.map((email) => email.toLowerCase()))];
+  const updates = [];
   const base = `/accounts/${state.accountId}`;
   for (const [kind, domain] of [["production", state.hostname], ["preview", `*.${state.hostname}`]]) {
     const saved = state.apps[kind];
@@ -92,10 +96,34 @@ export async function verifySetup(state, api) {
     const policy = policies[0];
     const actual = policy?.include?.map((rule) => Object.keys(rule).length === 1 ? rule.email?.email?.toLowerCase() : undefined);
     if (policies.length !== 1 || policy.decision !== "allow" || !actual ||
-        actual.length !== state.emails.length || actual.some((email) => !state.emails.includes(email)) ||
-        new Set(actual).size !== state.emails.length)
-      throw new Error("허용 이메일 정책이 변경되었거나 확인되지 않았습니다. Cloudflare 정책과 .doxen-deploy.json의 emails를 일치시킨 뒤 다시 실행하세요.");
+        !validEmails(actual))
+      throw new Error("허용 이메일 정책이 변경되었거나 확인되지 않았습니다. Doxen의 단일 이메일 Allow 정책만 자동 관리합니다.");
+    const same = actual.length === desired.length && new Set(actual).size === desired.length &&
+      actual.every((email) => desired.includes(email));
+    if (same) continue;
+    if (!syncEmails)
+      throw new Error("허용 이메일 정책이 아직 로컬 emails와 일치하지 않습니다. 같은 배포 명령으로 다시 시도하세요.");
+    // Do not replace reusable policies or discard manually added security conditions.
+    if (policy.name !== "Doxen 열람자" || !/^[\da-f-]{36}$/i.test(policy.id) ||
+        policy.reusable === true || policy.app_count > 1 || policy.require?.length ||
+        policy.exclude?.length || policy.approval_required || policy.approval_groups?.length ||
+        policy.purpose_justification_required || policy.connection_rules)
+      throw new Error("허용 이메일 정책에 별도 조건이 설정되어 자동 수정할 수 없습니다. 기존 보안 설정을 확인하세요.");
+    const body = {
+      name: policy.name, decision: "allow",
+      include: desired.map((email) => ({ email: { email } })),
+    };
+    for (const key of ["precedence", "session_duration", "isolation_required", "mfa_config"])
+      if (policy[key] !== undefined) body[key] = policy[key];
+    updates.push({ route: `${route}/policies/${policy.id}`, body });
   }
+  // Validate both applications before changing either. Retrying repairs a partial update.
+  for (const update of updates) {
+    log("JSON의 허용 이메일 목록을 Cloudflare 정책에 반영합니다.");
+    await api.send(update.route, "PUT", update.body);
+  }
+  if (updates.length) await verifySetup(state, api);
+
 }
 
 export async function prepareDeployment(config, {
@@ -141,7 +169,7 @@ export async function prepareDeployment(config, {
   const credentials = { ...env, CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token };
   if (config.deploy && !state) return { config, env: credentials };
   if (state?.ready) {
-    await verifySetup(state, api);
+    await verifySetup(state, api, { syncEmails: true, log });
     return { config: { ...config, deploy: validateDeployment(deploymentFromState(state)) }, env: credentials };
   }
   const ask = await ui();
