@@ -174,10 +174,11 @@ test("build includes only referenced assets, skips hidden and symlink files, and
   );
 });
 
-test("favicon uses the first grapheme of the trimmed title and escapes XML", async (t) => {
+test("favicon and header logo use the first grapheme of the trimmed title and escape markup", async (t) => {
   const config = await loadConfig(await fixture(t));
   for (const [title, expected] of [
     ["  Project docs", "P"],
+    ["pharmaresearch", "p"],
     ["팀 문서".normalize("NFD"), "팀"],
     ["👩‍💻 Docs", "👩‍💻"],
     ["& Docs", "&#38;"],
@@ -185,6 +186,8 @@ test("favicon uses the first grapheme of the trimmed title and escapes XML", asy
   ]) {
     const files = await siteFiles({ ...config, title });
     assert.ok(files.get("/favicon.svg").toString().includes(`>${expected}</text>`));
+    assert.ok(files.get("/index.html").toString().includes(`<span class="brand-icon">${expected}</span`));
+    assert.match(files.get("/favicon.svg").toString(), /x="16" y="16" dominant-baseline="middle"/);
   }
 });
 

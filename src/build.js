@@ -25,12 +25,16 @@ export async function siteFiles(config, dev = false) {
   files.set(
     "/favicon.svg",
     Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${config.icon.background}"/><text x="16" y="17" dominant-baseline="central" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="${config.icon.color}">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${config.icon.background}"/><text x="16" y="16" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="${config.icon.color}">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</text></svg>`,
     ),
   );
   for (const name of ["index.html", "app.js", "style.css", "search.js"])
     files.set(`/${name}`, await readFile(path.join(client, name)));
   let html = files.get("/index.html").toString();
+  html = html.replace(
+    '<span class="brand-icon">D</span',
+    `<span class="brand-icon">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</span`,
+  );
   html = html.replace(
     "</head>",
     `<style>:root{--icon-background:${config.icon.background};--icon-color:${config.icon.color};--icon-border:${config.icon.border}}</style></head>`,
