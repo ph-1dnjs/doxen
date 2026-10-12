@@ -154,7 +154,7 @@ kbd {
 }
 #documents a {
   display: block;
-  padding: 6px 12px 6px 20px;
+  padding: 6px 12px 6px 23px;
   font-size: 14px;
   color: #7d8289;
   border-left: 1px solid var(--line);
@@ -191,11 +191,14 @@ kbd {
   border: 0;
 }
 .folder-children > .folder-group > summary {
-  padding-left: 20px;
+  padding-left: 23px;
 }
 .folder-children {
   margin-left: 8px;
   border-left: 1px solid var(--line);
+}
+.folder-children > .folder-group > .folder-children {
+  margin-left: 23px;
 }
 .folder-children > a {
   margin-left: -1px;
