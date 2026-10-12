@@ -46,7 +46,7 @@ export async function siteFiles(config, dev = false) {
   const files = new Map();
   const initial = new Intl.Segmenter("ko", { granularity: "grapheme" })
     .segment(config.title.trim().normalize("NFC"))[Symbol.iterator]()
-    .next().value.segment;
+    .next().value.segment.replace(/[a-z]/g, (c) => c.toUpperCase());
   files.set(
     "/favicon.svg",
     Buffer.from(

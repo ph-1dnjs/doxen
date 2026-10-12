@@ -174,11 +174,13 @@ test("build includes only referenced assets, skips hidden and symlink files, and
   );
 });
 
-test("favicon and header logo use the first grapheme of the trimmed title and escape markup", async (t) => {
+test("favicon and header logo uppercase English initials, preserve other graphemes and escape markup", async (t) => {
   const config = await loadConfig(await fixture(t));
   for (const [title, expected] of [
     ["  Project docs", "P"],
-    ["pharmaresearch", "p"],
+    ["pharmaresearch", "P"],
+    ["  doxen", "D"],
+    ["ß docs", "ß"],
     ["팀 문서".normalize("NFD"), "팀"],
     ["👩‍💻 Docs", "👩‍💻"],
     ["& Docs", "&#38;"],
