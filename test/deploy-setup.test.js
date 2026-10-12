@@ -146,9 +146,30 @@ test("existing company IdP is reused without changing account login settings", a
   cloud.setOrganization({ auth_domain: "team.cloudflareaccess.com" });
   const provider = { id: randomUUID(), name: "Company SSO", type: "oidc" };
   cloud.setProviders([provider]);
-  await prepareDeployment(config, { env, prompt: prompts(), apiFactory: () => cloud.api, log: silent });
+  const prompt = { ...prompts(), select: async () => provider.id };
+  await prepareDeployment(config, { env, prompt, apiFactory: () => cloud.api, log: silent });
   for (const app of cloud.apps.values()) assert.deepEqual(app.allowed_idps, [provider.id]);
   assert(!cloud.calls.some(([method, route]) => method === "POST" && /organizations|identity_providers/.test(route)));
+});
+
+test("Cloudflare's default login does not prevent choosing email OTP for external readers", async (t) => {
+  const config = await fixture(t);
+  const cloud = fakeCloud();
+  cloud.setOrganization({ auth_domain: "team.cloudflareaccess.com" });
+  const provider = { id: randomUUID(), name: "", type: "cloudflare" };
+  cloud.setProviders([provider]);
+  const prompt = { ...prompts(), select: async ({ choices }) => {
+    assert.match(choices[0].name, /이메일 일회용 코드/);
+    assert.match(choices[1].name, /Cloudflare 계정 필요/);
+    return choices[0].value;
+  } };
+  const prepared = await prepareDeployment(config, { env, prompt, apiFactory: () => cloud.api, log: silent });
+  const created = cloud.calls.find(([method, route]) => method === "POST" && route.endsWith("/identity_providers"));
+  assert.equal(created[2].type, "onetimepin");
+  assert.notEqual(prepared.config.deploymentState.providerId, provider.id);
+  for (const app of cloud.apps.values())
+    assert.deepEqual(app.allowed_idps, [prepared.config.deploymentState.providerId]);
+  assert(!cloud.calls.some(([method]) => ["PUT", "PATCH", "DELETE"].includes(method)));
 });
 
 test("changed policy, wrong account and a same-name project stop deployment", async (t) => {

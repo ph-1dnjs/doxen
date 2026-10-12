@@ -52,8 +52,6 @@ export async function provision(config, state, api, log = console.log) {
   if (!provider && state.providerId) throw new Error("선택한 로그인 방법이 삭제되었습니다. Cloudflare One에서 확인하세요.");
   if (!provider) {
     provider = providers.find((item) => item.type === "onetimepin");
-    if (!provider && providers.length)
-      throw new Error("기존 회사 로그인 설정이 발견되었습니다. npx doxen deploy를 다시 실행해 사용할 로그인 방법을 선택하세요.");
     if (!provider) provider = await api.send(`${base}/access/identity_providers`, "POST", { name: "Doxen 이메일 인증", type: "onetimepin", config: {} });
     state.providerId = provider.id;
     await persist();
@@ -188,9 +186,21 @@ export async function prepareDeployment(config, {
   // Read before mutation so an existing company login is preserved.
   const organization = await api.get(`/accounts/${account}/access/organizations`, { missing: true });
   const providers = organization ? await api.list(`/accounts/${account}/access/identity_providers`) : [];
-  if (!state.providerId && providers.length) state.providerId = await ask.select({
-    message: "열람자가 사용할 로그인 방법", choices: providers.map((item) => ({ name: item.name, value: item.id })),
-  });
+  if (!state.providerId && providers.length) {
+    const otp = providers.find((item) => item.type === "onetimepin");
+    state.providerId = await ask.select({
+      message: "열람자가 사용할 로그인 방법",
+      choices: [
+        { name: "이메일 일회용 코드 (허용 이메일로 인증)", value: otp?.id || "" },
+        ...providers.filter((item) => item.type !== "onetimepin").map((item) => ({
+          name: item.type === "cloudflare"
+            ? `${item.name || "Cloudflare"} (Cloudflare 계정 필요 · 계정 멤버 제한 가능)`
+            : item.name || item.type,
+          value: item.id,
+        })),
+      ],
+    });
+  }
   log(`계정: ${account}\n사이트: ${state.project}\n열람자: ${state.emails.join(", ")}\n로그인: ${state.providerId ? "선택한 기존 로그인" : "이메일 일회용 코드 (계정에 로그인 방법 추가)"}\n문서 폴더: ${config.tabs.map((tab) => tab.dir).join(", ")}`);
   if (!await ask.confirm({ message: "이 설정으로 접근 제한을 준비하고 문서를 배포할까요?", default: true }))
     throw new Error("배포를 취소했습니다. 문서는 업로드하지 않았습니다.");
