@@ -197,58 +197,8 @@ main {
 #breadcrumb {
   color: #46a5df;
   font-size: 11px;
-  padding-right: 135px;
   margin-bottom: 12px;
   overflow-wrap: anywhere;
-}
-.document-find {
-  position: absolute;
-  right: 0;
-  top: 28px;
-  z-index: 1;
-  font-size: 11px;
-  color: #8a929c;
-}
-.document-find > summary {
-  cursor: pointer;
-  list-style: none;
-  border: 1px solid var(--line);
-  padding: 3px 9px;
-  border-radius: 6px;
-  background: white;
-}
-.document-tools {
-  position: absolute;
-  right: 0;
-  top: 34px;
-  width: 330px;
-  display: flex;
-  gap: 5px;
-  align-items: center;
-  background: white;
-  border: 1px solid var(--line);
-  padding: 10px;
-  border-radius: 9px;
-  box-shadow: 0 5px 20px #122c4115;
-}
-.document-tools label {
-  position: absolute;
-  clip-path: inset(50%);
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-.document-tools input {
-  width: 130px;
-  flex: 1;
-  font-size: 12px;
-  padding: 5px 8px;
-}
-.document-tools span {
-  white-space: nowrap;
-}
-.document-tools button {
-  padding: 2px 7px;
 }
 article {
   font-size: 14px;
@@ -407,17 +357,6 @@ article img {
   border-radius: 3px;
   font-size: 12px;
 }
-.section-tools button {
-  padding: 0 6px;
-  border: 0;
-}
-.section-tools button:disabled {
-  display: none;
-}
-.match-count {
-  white-space: nowrap;
-  color: #8794a1;
-}
 .section-content > :first-child {
   margin-top: 12px;
 }
@@ -474,10 +413,6 @@ mark {
   background: #fff1ad;
   color: inherit;
   border-radius: 2px;
-}
-mark.active-hit {
-  background: #ffe17c;
-  outline: 1px solid #d5ad39;
 }
 .skip-link {
   position: absolute;
@@ -598,9 +533,6 @@ dialog::backdrop {
   main {
     padding-top: 25px;
   }
-  .document-find {
-    top: 22px;
-  }
   article h1 {
     font-size: 27px;
   }
@@ -616,9 +548,6 @@ dialog::backdrop {
   }
   #breadcrumb {
     font-size: 10px;
-  }
-  .document-tools {
-    width: min(330px, calc(100vw - 40px));
   }
   .section-tools {
     padding: 6px 9px;

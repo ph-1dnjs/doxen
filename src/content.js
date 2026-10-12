@@ -82,7 +82,7 @@ export async function collectSite(config) {
         const label =
           tokens[index].info.trim().slice(6).trim() || "이 섹션 검색";
         const id = `section-search-${searchIndex++}`;
-        return `<section class="search-section"><div class="section-tools"><label for="${id}">${escape(label)}</label><input id="${id}" type="search" data-section-search placeholder="섹션 안에서 찾기"/><span class="match-count" aria-live="polite"></span><button type="button" data-find-prev aria-label="이전 일치">↑</button><button type="button" data-find-next aria-label="다음 일치">↓</button></div><div class="section-content">`;
+        return `<section class="search-section"><div class="section-tools"><label for="${id}">${escape(label)}</label><input id="${id}" type="search" data-section-search placeholder="표 안에서 검색"/></div><div class="section-content">`;
       },
     });
     const tokens = md.parse(doc.source, {});

@@ -54,60 +54,45 @@ function highlight(root, query) {
   return hits;
 }
 
-let finders = [];
-function attachFinder(input, root, count, prev, next) {
-  const rows = [...root.querySelectorAll("tbody tr")];
-  let hits = [];
-  let index = -1;
-  const state = {
-    input,
-    reset() {
-      for (const row of rows) row.hidden = false;
-      hits = [];
-      index = -1;
-      count.textContent = "";
-      prev.disabled = next.disabled = true;
-    },
-  };
-  finders.push(state);
-  const update = () => {
-    count.textContent = input.value
-      ? `${index < 0 ? 0 : index + 1} / ${hits.length}`
-      : "";
-    prev.disabled = next.disabled = !hits.length;
-  };
-  const move = (direction) => {
-    if (!hits.length) return;
-    hits[index]?.classList.remove("active-hit");
-    index = (index + direction + hits.length) % hits.length;
-    hits[index].classList.add("active-hit");
-    hits[index].scrollIntoView({ block: "center", behavior: "smooth" });
-    update();
-  };
-  input.oninput = () => {
-    for (const finder of finders)
-      if (finder !== state) {
-        finder.input.value = "";
-        finder.reset();
-      }
-    clearMarks($("#article"));
-    for (const row of rows) {
-      row.hidden = !matchesRow([...row.cells].map((cell) => cell.textContent).join(" "), input.value);
+function attachTableSearches() {
+  const article = $("#article");
+  const labels = new Map();
+  for (const section of article.querySelectorAll(".search-section")) {
+    labels.set(section, section.querySelector(".section-tools label")?.textContent);
+    section.querySelector(".section-tools")?.remove();
+  }
+  let heading = current.title;
+  let index = 0;
+  for (const node of article.querySelectorAll("h1, h2, h3, h4, h5, h6, table")) {
+    if (node.tagName !== "TABLE") {
+      heading = node.textContent;
+      continue;
     }
-    hits = highlight(root, input.value);
-    index = -1;
-    if (hits.length) move(1);
-    else update();
-  };
-  input.onkeydown = (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      move(event.shiftKey ? -1 : 1);
-    }
-  };
-  prev.onclick = () => move(-1);
-  next.onclick = () => move(1);
-  state.reset();
+    const table = node;
+    const tools = el("div", undefined, "section-tools");
+    const id = `table-search-${index++}`;
+    const label = el(
+      "label",
+      labels.get(table.closest(".search-section")) || `${heading} 표 검색`,
+    );
+    label.htmlFor = id;
+    const input = el("input");
+    input.id = id;
+    input.type = "search";
+    input.dataset.tableSearch = "";
+    input.placeholder = "표 안에서 검색";
+    const rows = [...table.querySelectorAll("tbody tr")];
+    input.oninput = () => {
+      clearMarks(table);
+      for (const row of rows)
+        row.hidden = !matchesRow(
+          [...row.cells].map((cell) => cell.textContent).join(" "),
+          input.value,
+        );
+    };
+    tools.append(label, input);
+    table.before(tools);
+  }
 }
 
 function renderNavigation() {
@@ -161,9 +146,6 @@ function render() {
   renderNavigation();
   $("#toc").replaceChildren();
   $("#pagination").replaceChildren();
-  $("#page-search").value = "";
-  finders = [];
-  $(".document-find").open = false;
   if (!current) {
     $("#article").replaceChildren(
       el(
@@ -177,13 +159,11 @@ function render() {
         "설정된 폴더에 Markdown 파일을 추가하거나 왼쪽 목록에서 문서를 선택하세요.",
       ),
     );
-    $(".document-tools").hidden = true;
     $("#breadcrumb").textContent = site.tabs.find(
       (tab) => tab.slug === activeTab,
     ).title;
     return;
   }
-  $(".document-tools").hidden = false;
   document.title = `${current.title} · ${site.title}`;
   $("#breadcrumb").textContent =
     `${site.tabs.find((tab) => tab.slug === current.tab).title} / ${current.path}`;
@@ -216,25 +196,9 @@ function render() {
     link.append(el("small", label), el("strong", doc.title));
     $("#pagination").append(link);
   }
-  attachFinder(
-    $("#page-search"),
-    $("#article"),
-    $("#page-count"),
-    $("#page-prev"),
-    $("#page-next"),
-  );
-  for (const section of document.querySelectorAll(".search-section"))
-    attachFinder(
-      section.querySelector("[data-section-search]"),
-      section.querySelector(".section-content"),
-      section.querySelector(".match-count"),
-      section.querySelector("[data-find-prev]"),
-      section.querySelector("[data-find-next]"),
-    );
+  attachTableSearches();
   if (pendingQuery) {
-    $(".document-find").open = true;
-    $("#page-search").value = pendingQuery;
-    $("#page-search").oninput();
+    highlight($("#article"), pendingQuery);
     pendingQuery = "";
   }
   if (anchor) {
