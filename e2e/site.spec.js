@@ -1,5 +1,63 @@
 import { test, expect } from "@playwright/test";
 
+test("folders show immediate child cards and sidebar labels follow the active tab", async ({ page }, testInfo) => {
+  const documents = [
+    ["policy", "0. 공통 데이터 정의/01. 회원", "01. 회원"],
+    ["policy", "0. 공통 데이터 정의/02. 상품", "02. 상품"],
+    ["policy", "0. 공통 데이터 정의/상세/01. 가격", "01. 가격"],
+    ["policy", "0. 공통 데이터 정의/상세/02. 주문", "02. 주문"],
+    ["api", "소개", "API 소개"],
+  ].map(([tab, path, title]) => ({
+    id: `${tab}/${path}`, tab, path: `${path}.md`, title,
+    html: `<h1>${title}</h1><h2 id="details">상세 내용</h2>`,
+    toc: [{ title: "상세 내용", level: 2, anchor: "details" }],
+    sections: [],
+  }));
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "pharmaresearch",
+    tabs: [{ slug: "policy", title: "정책" }, { slug: "api", title: "API 문서" }],
+    documents,
+  } }));
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await page.goto("./");
+  await expect(page.locator(".sidebar .eyebrow")).toHaveText("정책");
+  const folder = page.locator("#documents summary a").getByText("0. 공통 데이터 정의", { exact: true });
+  await folder.click();
+  await expect(page.locator("article h1")).toHaveText("0. 공통 데이터 정의");
+  await expect(folder).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".folder-cards a")).toHaveText(["01. 회원", "02. 상품", "상세"]);
+  await expect(page.locator(".toc")).toBeHidden();
+  await expect(page.locator("#pagination")).toBeHidden();
+  await page.reload();
+  await expect(page.locator("article h1")).toHaveText("0. 공통 데이터 정의");
+  await page.screenshot({ path: testInfo.outputPath("folder-desktop.png") });
+  await page.locator(".folder-cards").getByRole("link", { name: "상세", exact: true }).click();
+  await expect(page.locator(".folder-cards a")).toHaveText(["01. 가격", "02. 주문"]);
+  await expect(page.locator("#breadcrumb a")).toHaveText(["정책", "0. 공통 데이터 정의", "상세"]);
+  await expect(page.locator("#breadcrumb a").nth(1)).toHaveAttribute("href", `#/${encodeURIComponent("policy/0. 공통 데이터 정의/")}`);
+  await expect(page.locator("#breadcrumb a").last()).toHaveAttribute("aria-current", "page");
+  await page.locator(".folder-cards").getByRole("link", { name: "01. 가격", exact: true }).click();
+  await expect(page.locator("article h1")).toHaveText("01. 가격");
+  await expect(page.locator("#breadcrumb a")).toHaveText(["정책", "0. 공통 데이터 정의", "상세", "01. 가격"]);
+  await page.locator("#breadcrumb a").getByText("상세", { exact: true }).click();
+  await expect(page.locator("article h1")).toHaveText("상세");
+  await page.locator(".folder-cards").getByRole("link", { name: "01. 가격", exact: true }).click();
+  await expect(page.locator(".toc")).toBeVisible();
+  await expect(page.locator("#pagination")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator("article h1")).toHaveText("상세");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cards = page.locator(".folder-cards a");
+  const first = await cards.nth(0).boundingBox();
+  const second = await cards.nth(1).boundingBox();
+  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("folder-mobile.png") });
+  await page.locator("#tabs").getByRole("link", { name: "API 문서" }).click();
+  await expect(page.locator(".sidebar .eyebrow")).toHaveText("API 문서");
+  await expect(page.locator("article h1")).toHaveText("API 소개");
+});
+
 test("tabs, relative links, Korean heading deep links and refresh work under a hosting subpath", async ({
   page,
 }) => {
@@ -7,6 +65,7 @@ test("tabs, relative links, Korean heading deep links and refresh work under a h
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("./");
   await expect(page.locator("article h1")).toHaveText("팀의 지식을 한곳에");
+  await expect(page.locator("#breadcrumb a")).toHaveText(["시작하기", "01-introduction"]);
   await page
     .getByRole("navigation", { name: "문서 탭" })
     .getByRole("link", { name: "레퍼런스" })

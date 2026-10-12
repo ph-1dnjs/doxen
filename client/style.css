@@ -182,6 +182,13 @@ kbd {
 .folder-group summary::-webkit-details-marker {
   display: none;
 }
+#documents summary a {
+  padding: 0;
+  border: 0;
+}
+.folder-children > .folder-group > summary {
+  padding-left: 20px;
+}
 .folder-children {
   margin-left: 20px;
   border-left: 1px solid var(--line);
@@ -195,10 +202,38 @@ main {
   padding: 30px 0 64px;
 }
 #breadcrumb {
-  color: #46a5df;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 20px;
   margin-bottom: 12px;
   overflow-wrap: anywhere;
+}
+#breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#breadcrumb li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+#breadcrumb li + li::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-top: 1px solid #8c959f;
+  border-right: 1px solid #8c959f;
+  transform: rotate(45deg);
+}
+#breadcrumb a {
+  min-width: 0;
+  color: #1890ff;
 }
 article {
   font-size: 14px;
@@ -212,6 +247,40 @@ article h1 {
   margin: 10px 0 25px;
   color: #1e2023;
   font-weight: 700;
+}
+.folder-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.folder-cards a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 54px;
+  padding: 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: inherit;
+}
+.folder-cards a::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-top: 1px solid #737d88;
+  border-right: 1px solid #737d88;
+  transform: rotate(45deg);
+}
+.folder-cards a:hover {
+  background: #f7f9fa;
+  border-color: #c6d1dc;
+  text-decoration: none;
+}
+.toc[hidden],
+#pagination[hidden] {
+  display: none;
 }
 article h2 {
   font-size: 26px;
@@ -536,6 +605,9 @@ dialog::backdrop {
   article h1 {
     font-size: 27px;
   }
+  .folder-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
   article h2 {
     font-size: 23px;
   }
@@ -545,9 +617,6 @@ dialog::backdrop {
   article td,
   article th {
     padding: 8px;
-  }
-  #breadcrumb {
-    font-size: 10px;
   }
   .section-tools {
     padding: 6px 9px;

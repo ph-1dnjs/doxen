@@ -95,7 +95,10 @@ function attachTableSearches() {
   }
 }
 
-function renderNavigation() {
+function renderNavigation(folderPath) {
+  $(".sidebar .eyebrow").textContent = site.tabs.find(
+    (tab) => tab.slug === activeTab,
+  ).title;
   $("#tabs").replaceChildren();
   for (const tab of site.tabs) {
     const first = site.documents.find((doc) => doc.tab === tab.slug);
@@ -113,8 +116,13 @@ function renderNavigation() {
       key += `${part}/`;
       if (!folders.has(key)) {
         const group = el("details", undefined, "folder-group");
-        group.open = current?.path.startsWith(key) || false;
-        group.append(el("summary", part));
+        group.open = (current?.path || folderPath || "").startsWith(key);
+        const summary = el("summary");
+        const link = el("a", part, key === folderPath ? "selected" : "");
+        link.href = route(`${activeTab}/${key}`);
+        if (key === folderPath) link.setAttribute("aria-current", "page");
+        summary.append(link);
+        group.append(summary);
         const children = el("div", undefined, "folder-children");
         group.append(children);
         parent.append(group);
@@ -127,6 +135,58 @@ function renderNavigation() {
     if (doc.id === current?.id) link.setAttribute("aria-current", "page");
     parent.append(link);
   }
+}
+
+function renderBreadcrumb(parts = [], currentItem) {
+  const tab = site.tabs.find((item) => item.slug === activeTab);
+  const first = site.documents.find((doc) => doc.tab === activeTab);
+  const items = [
+    { title: tab.title, id: first?.id || `${activeTab}/` },
+    ...parts.map((title, index) => ({
+      title,
+      id: `${activeTab}/${parts.slice(0, index + 1).join("/")}/`,
+    })),
+  ];
+  if (currentItem) items.push(currentItem);
+  const list = el("ol");
+  for (const item of items) {
+    const entry = el("li");
+    const link = el("a", item.title);
+    link.href = route(item.id);
+    if (item === currentItem) link.setAttribute("aria-current", "page");
+    entry.append(link);
+    list.append(entry);
+  }
+  $("#breadcrumb").replaceChildren(list);
+}
+
+function renderFolder(folderPath) {
+  const title = folderPath.split("/").at(-2);
+  document.title = `${title} · ${site.title}`;
+  renderBreadcrumb(folderPath.split("/").slice(0, -2), {
+    title,
+    id: `${activeTab}/${folderPath}`,
+  });
+  const cards = el("nav", undefined, "folder-cards");
+  cards.setAttribute("aria-label", "하위 폴더 및 문서");
+  const children = new Map();
+  for (const doc of site.documents.filter(
+    (item) => item.tab === activeTab && item.path.startsWith(folderPath),
+  )) {
+    const relative = doc.path.slice(folderPath.length);
+    const nested = relative.includes("/");
+    const name = relative.split("/")[0];
+    const id = nested ? `${activeTab}/${folderPath}${name}/` : doc.id;
+    if (!children.has(id)) children.set(id, nested ? name : doc.title);
+  }
+  for (const [id, name] of children) {
+    const link = el("a", name);
+    link.href = route(id);
+    cards.append(link);
+  }
+  $("#article").replaceChildren(el("h1", title), cards);
+  pendingQuery = "";
+  window.scrollTo(0, 0);
 }
 
 function render() {
@@ -143,9 +203,21 @@ function render() {
     current?.tab ||
     site.tabs.find((tab) => id?.startsWith(`${tab.slug}/`))?.slug ||
     site.tabs[0].slug;
-  renderNavigation();
+  const folderPath = !current && id?.startsWith(`${activeTab}/`) && id.endsWith("/")
+    ? id.slice(activeTab.length + 1)
+    : null;
+  const isFolder = folderPath && site.documents.some(
+    (doc) => doc.tab === activeTab && doc.path.startsWith(folderPath),
+  );
+  renderNavigation(isFolder ? folderPath : null);
   $("#toc").replaceChildren();
   $("#pagination").replaceChildren();
+  $(".toc").hidden = !current;
+  $("#pagination").hidden = !current;
+  if (isFolder) {
+    renderFolder(folderPath);
+    return;
+  }
   if (!current) {
     $("#article").replaceChildren(
       el(
@@ -159,14 +231,14 @@ function render() {
         "설정된 폴더에 Markdown 파일을 추가하거나 왼쪽 목록에서 문서를 선택하세요.",
       ),
     );
-    $("#breadcrumb").textContent = site.tabs.find(
-      (tab) => tab.slug === activeTab,
-    ).title;
+    renderBreadcrumb();
     return;
   }
   document.title = `${current.title} · ${site.title}`;
-  $("#breadcrumb").textContent =
-    `${site.tabs.find((tab) => tab.slug === current.tab).title} / ${current.path}`;
+  renderBreadcrumb(current.path.split("/").slice(0, -1), {
+    title: current.path.split("/").at(-1).replace(/\.md$/i, ""),
+    id: current.id,
+  });
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
   // Existing containers with a leading heading also display the search below it.
