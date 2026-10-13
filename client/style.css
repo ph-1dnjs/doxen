@@ -243,18 +243,18 @@ main {
 }
 article {
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.625;
   font-weight: 400;
-  letter-spacing: -0.2px;
+  letter-spacing: normal;
+  color: #1c1d1e;
   overflow-wrap: anywhere;
 }
 article h1 {
-  font-size: 32px;
-  letter-spacing: -0.8px;
-  line-height: 1.4;
-  margin: 12px 0 24px;
-  color: #1e2023;
-  font-weight: 650;
+  font-size: 36px;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  margin: 0 0 24px;
+  font-weight: 700;
 }
 article strong {
   font-weight: 600;
@@ -294,17 +294,28 @@ article strong {
   display: none;
 }
 article h2 {
-  font-size: 28px;
-  letter-spacing: -0.6px;
-  margin: 44px 0 20px;
-  line-height: 1.5;
-  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.0125em;
+  margin: 20px 0;
+  padding-top: 1em;
+  line-height: 1.2;
+  font-weight: 600;
 }
 article h3 {
-  font-size: 20px;
-  line-height: 1.5;
+  font-size: 24px;
+  letter-spacing: -0.0125em;
+  line-height: 1.333333;
   font-weight: 600;
-  margin: 28px 0 20px;
+  margin: 20px 0;
+  padding-top: 0.75em;
+}
+article h4 {
+  font-size: 20px;
+  letter-spacing: -0.0125em;
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 20px 0;
+  padding-top: 0.5em;
 }
 article :is(h1, h2, h3, h4, h5, h6) {
   scroll-margin-top: 24px;
@@ -326,31 +337,61 @@ article hr:has(+ .document-version) {
   display: none;
 }
 article p {
-  color: #4b5055;
-  margin: 16px 0;
+  margin: 20px 0;
 }
 article blockquote {
   margin: 20px 0;
   padding: 12px 24px;
   border-left: 2px solid var(--accent-border, #d6dfe6);
-  color: #727b85;
+  color: #686f74;
 }
 article blockquote p {
   margin: 0;
-  color: #727b85;
+}
+article blockquote > * + * {
+  margin-top: 16px;
 }
 article hr {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 20px 0 28px;
+  margin: 20px 0;
 }
 article ul,
 article ol {
   padding-left: 24px;
-  color: #4b5055;
+  margin: 20px 0;
+}
+article li {
+  padding-left: 4px;
+  line-height: 1.5;
+}
+article li::marker {
+  color: #686f74;
 }
 article li + li {
   margin-top: 8px;
+}
+article li > p {
+  margin: 0;
+}
+article li > :is(ul, ol) {
+  margin: 8px 0 0;
+}
+article li > :not(:first-child) {
+  margin-top: 8px;
+}
+article ul {
+  list-style-type: disc;
+}
+article ul ul {
+  list-style-type: circle;
+}
+article ol ol {
+  list-style-type: lower-alpha;
+}
+article a:not(.folder-cards a) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 article pre {
   overflow: auto;
@@ -658,13 +699,21 @@ dialog::backdrop {
     padding-top: 25px;
   }
   article h1 {
-    font-size: 27px;
+    font-size: 30px;
   }
   .folder-cards {
     grid-template-columns: minmax(0, 1fr);
   }
   article h2 {
-    font-size: 21px;
+    font-size: 24px;
+  }
+  article h3 {
+    font-size: 20px;
+    line-height: 1.4;
+  }
+  article h4 {
+    font-size: 18px;
+    line-height: 1.5;
   }
   article table {
     font-size: 12px;
