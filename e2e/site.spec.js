@@ -1,6 +1,37 @@
 import { test, expect } from "@playwright/test";
 import MarkdownIt from "markdown-it";
 
+test("folder spreadsheet opens and switches sheets", async ({ page }) => {
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "문서", tabs: [{ slug: "guide", title: "안내" }],
+    documents: [{ id: "guide/자료/보고서.xlsx", tab: "guide", path: "자료/보고서.xlsx", title: "보고서.xlsx", toc: [], sections: [], spreadsheet: { data: "./assets/sheets.json", file: "./assets/report.xlsx" } }],
+  } }));
+  await page.route("**/assets/sheets.json", (route) => route.fulfill({ json: [
+    { sheet: "첫째", data: [["이름", 42]] },
+    { sheet: "둘째", data: [["두 번째 시트"]] },
+  ] }));
+  await page.goto("./#/guide%2F%EC%9E%90%EB%A3%8C%2F");
+  await page.locator(".folder-cards").getByRole("link", { name: "보고서.xlsx" }).click();
+  await expect(page.locator(".spreadsheet-table")).toContainText("이름");
+  await expect(page.locator(".spreadsheet-table")).toContainText("42");
+  await expect(page.locator(".sheet-col-head")).toHaveText(["A", "B"]);
+  await page.locator('[data-cell="0-1"]').click();
+  await expect(page.locator(".sheet-name-box")).toHaveText("B1");
+  await expect(page.locator(".sheet-formula-value")).toHaveText("42");
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator(".sheet-name-box")).toHaveText("A1");
+  await page.getByPlaceholder("시트에서 찾기 (Enter: 다음)").fill("42");
+  await expect(page.locator(".sheet-find-count")).toHaveText("0/1");
+  await page.getByRole("tab", { name: /둘째/ }).click();
+  await expect(page.locator(".spreadsheet-table")).toContainText("두 번째 시트");
+  await expect(page.getByRole("tab", { name: /둘째/ })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "펼치기" }).click();
+  await expect(page.locator(".sheet-viewer")).toHaveClass(/is-full/);
+  await page.getByRole("button", { name: "좁히기" }).click();
+  await expect(page.locator(".sheet-viewer")).not.toHaveClass(/is-full/);
+  await expect(page.getByRole("link", { name: "엑셀 파일 다운로드" })).toHaveAttribute("download", "보고서.xlsx");
+});
+
 test("Mermaid renders locally, preserves invalid sources and survives navigation", async ({ page }, testInfo) => {
   const source = [
     "# [개요] 회원가입 기능 흐름",

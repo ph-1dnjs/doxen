@@ -1,6 +1,6 @@
 {
   "name": "@unana_dev/doxen",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Config-first Markdown documentation sites with Korean and section search",
   "type": "module",
   "bin": {
@@ -42,6 +42,7 @@
     "markdown-it": "^14.1.0",
     "markdown-it-container": "^4.0.0",
     "mermaid": "^12.1.0",
+    "read-excel-file": "^9.3.14",
     "sanitize-html": "^2.17.0",
     "wrangler": "4.149.0"
   },

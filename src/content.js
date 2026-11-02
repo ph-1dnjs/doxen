@@ -5,6 +5,7 @@ import MarkdownIt from "markdown-it";
 import container from "markdown-it-container";
 import GithubSlugger from "github-slugger";
 import sanitizeHtml from "sanitize-html";
+import readXlsxFile from "read-excel-file/node";
 import { inside } from "./config.js";
 
 const assetExtensions = new Set([
@@ -16,6 +17,7 @@ const assetExtensions = new Set([
   ".avif",
   ".ico",
   ".pdf",
+  ".xlsx",
 ]);
 const escape = (text) =>
   text.replace(
@@ -47,7 +49,7 @@ async function walk(dir) {
       continue;
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) files.push(...(await walk(file)));
-    else if (/\.md$/i.test(entry.name)) files.push(file);
+    else if (/\.(?:md|xlsx)$/i.test(entry.name)) files.push(file);
   }
   return files.sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
 }
@@ -62,13 +64,26 @@ export async function collectSite(config) {
         tab: tab.slug,
         path: relative,
         file,
-        source: await readFile(file, "utf8"),
+        source: await readFile(file, /\.xlsx$/i.test(file) ? undefined : "utf8"),
       });
     }
   }
   const byFile = new Map(documents.map((doc) => [doc.file, doc]));
   const assets = new Map();
   for (const doc of documents) {
+    if (/\.xlsx$/i.test(doc.path)) {
+      const hash = createHash("sha256").update(doc.source).digest("hex").slice(0, 20);
+      const sheets = await readXlsxFile(doc.source, { trim: false });
+      assets.set(`${hash}.xlsx`, doc.source);
+      assets.set(`${hash}.json`, Buffer.from(JSON.stringify(sheets)));
+      doc.title = path.basename(doc.path);
+      doc.spreadsheet = { data: `./assets/${hash}.json`, file: `./assets/${hash}.xlsx` };
+      doc.toc = [];
+      doc.sections = [];
+      delete doc.source;
+      delete doc.file;
+      continue;
+    }
     const slugger = new GithubSlugger();
     const md = new MarkdownIt({
       html: false,

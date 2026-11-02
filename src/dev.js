@@ -18,6 +18,7 @@ const types = {
   ".ico": "image/x-icon",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".woff2": "font/woff2",
 };
 

@@ -174,6 +174,24 @@ test("build includes only referenced assets, skips hidden and symlink files, and
   );
 });
 
+test("xlsx files appear in folders and expose sheet data and the original file", async (t) => {
+  const root = await fixture(t);
+  const workbook = await readFile(new URL("./fixtures/sheets.xlsx", import.meta.url));
+  await mkdir(path.join(root, "guide", "sheets"));
+  await writeFile(path.join(root, "guide", "sheets", "자료.xlsx"), workbook);
+  await writeFile(path.join(root, "guide", "start.md"), "# 시작\n\n[자료](sheets/자료.xlsx)");
+  const files = await siteFiles(await loadConfig(root));
+  const data = JSON.parse(files.get("/site.json"));
+  const doc = data.documents.find((item) => item.path === "sheets/자료.xlsx");
+  assert.ok(doc);
+  assert.match(data.documents.find((item) => item.path === "start.md").html, /#\/guide%2Fsheets%2F/);
+  assert.deepEqual(JSON.parse(files.get(doc.spreadsheet.data.slice(1))), [
+    { sheet: "첫째", data: [["이름", 42]] },
+    { sheet: "둘째", data: [["두 번째 시트"]] },
+  ]);
+  assert.deepEqual(files.get(doc.spreadsheet.file.slice(1)), workbook);
+});
+
 test("favicon and header logo uppercase English initials, preserve other graphemes and escape markup", async (t) => {
   const config = await loadConfig(await fixture(t));
   for (const [title, expected] of [
