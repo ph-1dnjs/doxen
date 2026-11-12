@@ -406,6 +406,23 @@ test('long comments scroll with the full comment list', async ({ page }) => {
   expect(shorterHeight).toBeLessThan(initialHeight);
 });
 
+test('long table of contents fades in the scroll direction', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: Array.from({ length: 40 }, (_, i) => ({ title: `항목 ${i}`, anchor: `item-${i}`, level: 2 })), sections: [], html: '<h1>테스트</h1>' }],
+  } }));
+  await page.setViewportSize({ width: 1600, height: 700 });
+  await page.goto('./');
+  const frame = page.locator('.toc-frame');
+  const toc = page.locator('#toc');
+  await expect(frame).toHaveClass(/has-below/);
+  await expect(frame).not.toHaveClass(/has-above/);
+  expect(await toc.evaluate((node) => getComputedStyle(node).scrollbarWidth)).toBe('none');
+  await toc.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  await expect(frame).toHaveClass(/has-above/);
+  await expect(frame).not.toHaveClass(/has-below/);
+});
+
 test('selected text across formatting remains visible while composing and clears on close', async ({ page }) => {
   await page.route('**/site.json', (route) => route.fulfill({ json: {
     title: '문서', tabs: [{ slug: 'guide', title: '안내' }],

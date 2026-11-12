@@ -669,6 +669,7 @@ function render() {
     $("#toc").append(link);
   }
   $('#compact-toc-links').replaceChildren(...[...$('#toc').children].map((link) => link.cloneNode(true)));
+  requestAnimationFrame(updateTocFades);
   $('.compact-toc').hidden = !$('#toc').children.length;
   const siblings = site.documents.filter((doc) => doc.tab === activeTab);
   const index = siblings.indexOf(current);
@@ -811,6 +812,14 @@ dialog.addEventListener("click", (event) => {
       dialog.close();
   }
 });
+const updateTocFades = () => {
+  const toc = $('#toc');
+  const frame = $('.toc-frame');
+  frame.classList.toggle('has-above', toc.scrollTop > 1);
+  frame.classList.toggle('has-below', toc.scrollTop + toc.clientHeight < toc.scrollHeight - 1);
+};
+$('#toc').addEventListener('scroll', updateTocFades);
+new ResizeObserver(updateTocFades).observe($('.toc-frame'));
 window.addEventListener("hashchange", () => {
   if (site) render();
 });
