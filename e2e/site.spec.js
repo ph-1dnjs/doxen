@@ -282,7 +282,8 @@ test("configured color reaches navigation, focus and search highlights", async (
   await expect(page.locator("#breadcrumb a").first()).toHaveCSS("color", "rgb(234, 179, 8)");
   await page.locator("#open-search").click();
   await page.locator("#global-search").fill("산출물");
-  await expect(page.locator("#global-search")).toHaveCSS("outline-color", "color(srgb 0.967059 0.880784 0.612549)");
+  await expect(page.locator("#global-search")).toBeFocused();
+  await expect(page.locator(".global-search-field")).toHaveCSS("border-color", "rgb(234, 179, 8)");
   const highlight = "color(srgb 0.979412 0.92549 0.757843)";
   await expect(page.locator("#results mark").first()).toHaveCSS("background-color", highlight);
   await page.locator("#results .result").click();
@@ -477,7 +478,7 @@ test("search filters by a tab tag and Backspace removes it", async ({ page }) =>
   await page.getByRole("button", { name: /검색/ }).first().click();
   const input = page.locator("#global-search");
   await input.fill("#API 문서 ");
-  await expect(page.locator("#search-tag")).toHaveText("#API 문서");
+  await expect(page.locator("#search-tag-label")).toHaveText("# API 문서");
   await input.fill("공통");
   await expect(page.locator("#results .result")).toHaveCount(1);
   await expect(page.locator("#results .result")).toContainText("API 문서");
