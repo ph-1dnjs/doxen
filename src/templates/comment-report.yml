@@ -1,0 +1,34 @@
+name: Daily Doxen comments
+on:
+  schedule:
+    - cron: '0 23 * * *' # 매일 오전 8시 (Asia/Seoul)
+  workflow_dispatch:
+    inputs:
+      report_date:
+        description: '집계할 날짜 (YYYY-MM-DD, 한국 시간; 비우면 전날)'
+        required: false
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: doxen-comment-report
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Create daily comment issue
+        run: node node_modules/@unana_dev/doxen/src/comment-report.js
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOXEN_SITE_URL: ${{ vars.DOXEN_SITE_URL }}
+          DOXEN_CONFIG: ${{ vars.DOXEN_CONFIG }}
+          REPORT_DATE: ${{ inputs.report_date }}
