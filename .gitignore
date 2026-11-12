@@ -3,3 +3,4 @@ node_modules/
 *.tgz
 playwright-report/
 test-results/
+.DS_Store

@@ -5,6 +5,7 @@ export interface DocsConfig {
   icon?: string | { background?: string; color?: string; border?: string };
   deploy?: {
     project: string;
+    comments?: { databaseName: string; databaseId: string };
     access: {
       teamDomain: string;
       audiences: string[];

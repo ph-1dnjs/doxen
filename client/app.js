@@ -1,4 +1,5 @@
 import { searchDocuments, matchRanges, matchesRow } from "./search.js";
+import { attachComments } from "./comments.js";
 
 const $ = (selector) => document.querySelector(selector);
 const el = (tag, text, className) => {
@@ -558,10 +559,19 @@ function spreadsheetViewer(doc, rawSheets) {
   return viewer;
 }
 
+function renderModified(doc) {
+  if (!doc.modified?.date) return;
+  const date = new Date(doc.modified.date);
+  if (Number.isNaN(date.getTime())) return;
+  const label = `최종 수정 ${date.toLocaleDateString("ko-KR")}${doc.modified.author ? ` · ${doc.modified.author}` : ""}`;
+  $("#article h1").after(el("p", label, "document-modified"));
+}
+
 async function renderSpreadsheet(doc) {
   const article = $("#article");
   const content = el("p", "엑셀 파일을 불러오는 중입니다.", "sheet-message");
   article.replaceChildren(el("h1", doc.title), content);
+  renderModified(doc);
   try {
     const response = await fetch(doc.spreadsheet.data);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -581,9 +591,17 @@ async function renderSpreadsheet(doc) {
 }
 
 function render() {
-  let id, anchor;
+  document.body.classList.remove('has-comments', 'comment-card-open');
+  $('#article').commentLaneObserver?.disconnect();
+  $('#article').commentDismissController?.abort();
+  $('.compact-toc').hidden = true;
+  $('#compact-toc-links').hidden = true;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', 'false');
+  let id, anchor, commentId;
   try {
-    [id, anchor] = location.hash.slice(2).split("/").map(decodeURIComponent);
+    [id, anchor, commentId] = location.hash.slice(2).split("/").map(decodeURIComponent);
+    if (anchor !== 'comment') commentId = undefined;
+    if (commentId) anchor = undefined;
   } catch {
     id = "invalid";
   }
@@ -600,6 +618,7 @@ function render() {
   const isFolder = folderPath && site.documents.some(
     (doc) => doc.tab === activeTab && doc.path.startsWith(folderPath),
   );
+  $("#article").dataset.commentDocument = "";
   document.body.classList.toggle("is-spreadsheet", Boolean(current?.spreadsheet));
   document.body.classList.remove("sheet-fullscreen");
   renderNavigation(isFolder ? folderPath : null);
@@ -639,8 +658,10 @@ function render() {
     window.scrollTo(0, 0);
     return;
   }
+  $("#article").dataset.commentDocument = current.id;
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
+  renderModified(current);
   for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
     if (/^version\s*:\s*\S+/i.test(heading.textContent.trim()))
       heading.classList.add("document-version");
@@ -657,6 +678,9 @@ function render() {
     link.style.paddingLeft = `${Math.max(0, heading.level - 2) * 12}px`;
     $("#toc").append(link);
   }
+  $('#compact-toc-links').replaceChildren(...[...$('#toc').children].map((link) => link.cloneNode(true)));
+  requestAnimationFrame(updateTocFades);
+  $('.compact-toc').hidden = !$('#toc').children.length;
   const siblings = site.documents.filter((doc) => doc.tab === activeTab);
   const index = siblings.indexOf(current);
   for (const [label, doc] of [
@@ -673,6 +697,7 @@ function render() {
     $("#pagination").append(link);
   }
   attachTableSearches();
+  attachComments($("#article"), current.id, commentId);
   const diagrams = [...$("#article").querySelectorAll("pre > code")].filter(
     (code) => code.classList.contains("language-mermaid") ||
       (!code.className && /^\s*sequenceDiagram\b/.test(code.textContent)),
@@ -694,16 +719,50 @@ function render() {
   } else window.scrollTo(0, 0);
 }
 
+let searchTab = null;
+
 function renderResults() {
   const query = $("#global-search").value;
-  const results = searchDocuments(site.documents, query);
+  const results = searchDocuments(searchTab ? site.documents.filter((doc) => doc.tab === searchTab.slug) : site.documents, query);
+  $("#clear-search").hidden = !query;
+  const suggestions = $("#search-suggestions");
+  suggestions.replaceChildren();
+  suggestions.hidden = true;
+  if (!searchTab && /^#[^ ]*$/.test(query)) {
+    const tabs = site.tabs.filter((tab) => tab.title.toLocaleLowerCase().includes(query.slice(1).toLocaleLowerCase()));
+    if (tabs.length) {
+      suggestions.hidden = false;
+      suggestions.append(el("p", "탭으로 범위 지정"));
+      for (const tab of tabs) {
+        const button = el("button", undefined, "search-suggestion");
+        button.type = "button";
+        button.append(el("span", `# ${tab.title}`), el("small", `문서 ${site.documents.filter((doc) => doc.tab === tab.slug).length}개`));
+        button.onclick = () => selectSearchTab(tab);
+        suggestions.append(button);
+      }
+    }
+  }
+  $("#search-count").hidden = !suggestions.hidden;
   $("#search-count").textContent = query.trim()
     ? results.length
-      ? `${results.length}개 결과${results.length === 80 ? " (최대 80개 표시)" : ""}`
+      ? `${searchTab ? `${searchTab.title} 탭에서 ` : ""}${results.length}개 결과${results.length === 80 ? " (최대 80개 표시)" : ""}`
       : "일치하는 내용이 없습니다."
-    : "한국어와 영문으로 모든 탭의 내용을 검색합니다.";
+    : searchTab ? `${searchTab.title} 탭에서 검색합니다.` : "한국어와 영문으로 모든 탭의 내용을 검색합니다.";
   $("#results").replaceChildren();
-  for (const { doc, section } of results) {
+  if (query.trim() && !results.length && suggestions.hidden) {
+    const empty = el("div", undefined, "search-empty");
+    empty.append(el("strong", searchTab ? `‘${searchTab.title}’에 ‘${query}’ 결과가 없어요` : `‘${query}’ 검색 결과가 없어요`));
+    if (searchTab) {
+      const otherCount = searchDocuments(site.documents, query).length;
+      empty.append(el("p", `전체 탭에서 ${otherCount}개를 찾았습니다.`));
+      const button = el("button", "모든 탭에서 검색");
+      button.type = "button";
+      button.onclick = clearSearchTab;
+      empty.append(button);
+    }
+    $("#results").append(empty);
+  }
+  for (const { doc, section } of suggestions.hidden ? results : []) {
     const link = el("a", undefined, "result");
     link.href = route(doc.id, section.anchor);
     const title = el("strong", section.title);
@@ -732,20 +791,78 @@ function renderResults() {
   }
 }
 
+function selectSearchTab(tab) {
+  searchTab = tab;
+  $("#global-search").value = "";
+  $("#search-tag-label").textContent = `# ${tab.title}`;
+  $("#search-tag").hidden = false;
+  renderResults();
+  $("#global-search").focus();
+}
+function clearSearchTab() {
+  searchTab = null;
+  $("#search-tag").hidden = true;
+  renderResults();
+  $("#global-search").focus();
+}
+function positionSearch() {
+  const rect = $("#content").getBoundingClientRect();
+  dialog.style.left = `${rect.left}px`;
+  dialog.style.width = `${rect.width}px`;
+}
 const openSearch = () => {
   if (!site) return;
+  positionSearch();
   dialog.showModal();
   $("#global-search").focus();
   renderResults();
 };
+const closeCompactToc = () => {
+  $('#compact-toc-links').hidden = true;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', 'false');
+};
+$('#compact-toc-toggle').onclick = () => {
+  const links = $('#compact-toc-links');
+  links.hidden = !links.hidden;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', String(!links.hidden));
+};
+$('#compact-toc-links').onclick = (event) => {
+  if (event.target.closest('a')) closeCompactToc();
+};
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.compact-toc')) closeCompactToc();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('#compact-toc-links').hidden) {
+    closeCompactToc();
+    $('#compact-toc-toggle').focus();
+  }
+});
 $("#open-search").onclick = openSearch;
 $("#close-search").onclick = () => dialog.close();
-$("#global-search").oninput = renderResults;
+$("#clear-search-tag").onclick = clearSearchTab;
+$("#clear-search").onclick = () => { $("#global-search").value = ""; renderResults(); $("#global-search").focus(); };
+window.addEventListener("resize", () => { if (dialog.open) positionSearch(); });
+$("#global-search").oninput = (event) => {
+  const input = event.target;
+  if (!searchTab && !event.isComposing) {
+    const tab = site.tabs.find((item) => input.value.startsWith(`#${item.title} `));
+    if (tab) {
+      searchTab = tab;
+      input.value = input.value.slice(tab.title.length + 2);
+      $("#search-tag-label").textContent = `# ${tab.title}`;
+      $("#search-tag").hidden = false;
+    }
+  }
+  renderResults();
+};
 $("#global-search").onkeydown = (event) => {
-  if (event.key === "ArrowDown") {
+  if (event.key === "Backspace" && !event.isComposing && searchTab && !event.target.value && event.target.selectionStart === 0) {
+    clearSearchTab();
+  } else if (event.key === "ArrowDown") {
     event.preventDefault();
-    $("#results a")?.focus();
-  } else if (event.key === "Enter") $("#results a")?.click();
+    $("#search-suggestions:not([hidden]) button, #results a")?.focus();
+  } else if (event.key === "Enter") $("#search-suggestions:not([hidden]) button, #results a")?.click();
 };
 $("#results").onkeydown = (event) => {
   if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
@@ -776,6 +893,14 @@ dialog.addEventListener("click", (event) => {
       dialog.close();
   }
 });
+const updateTocFades = () => {
+  const toc = $('#toc');
+  const frame = $('.toc-frame');
+  frame.classList.toggle('has-above', toc.scrollTop > 1);
+  frame.classList.toggle('has-below', toc.scrollTop + toc.clientHeight < toc.scrollHeight - 1);
+};
+$('#toc').addEventListener('scroll', updateTocFades);
+new ResizeObserver(updateTocFades).observe($('.toc-frame'));
 window.addEventListener("hashchange", () => {
   if (site) render();
 });

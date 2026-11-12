@@ -156,3 +156,27 @@ test("deploy builds before invoking local Wrangler and propagates upload failure
   await writeFile(path.join(wrangler, "bin", "wrangler.js"), "process.exit(9);");
   await assert.rejects(deploy(config), /종료 코드 9/);
 });
+
+test("comments require Access authentication and use the authenticated author", async () => {
+  const { privateKey, publicKey } = await generateKeyPair("RS256");
+  const keys = createLocalJWKSet({ keys: [{ ...await exportJWK(publicKey), kid: "comments", alg: "RS256" }] });
+  const worker = accessWorker(settings.access, keys);
+  const token = await new SignJWT({ email: "Member@example.com" })
+    .setProtectedHeader({ alg: "RS256", kid: "comments" }).setIssuer(settings.access.teamDomain)
+    .setAudience(settings.access.audiences).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+  let inserted;
+  const env = { COMMENTS_DB: { prepare: (sql) => ({ bind: (...values) => ({
+    run: async () => { inserted = values; }, all: async () => ({ results: [{ body: "hello" }] }),
+  }) }) } };
+  const url = "https://team-docs.pages.dev/__doxen/comments";
+  assert.equal((await worker.fetch(new Request(url), env)).status, 403);
+  const headers = { "cf-access-jwt-assertion": token, "content-type": "application/json", origin: "https://team-docs.pages.dev" };
+  const data = { document: "guide/a", block: "paragraph", quote: "part", body: "hello", author: "forged@example.com" };
+  assert.equal((await worker.fetch(new Request(url, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body: JSON.stringify(data) }), env)).status, 403);
+  const created = await worker.fetch(new Request(url, { method: "POST", headers, body: JSON.stringify(data) }), env);
+  assert.equal(created.status, 201);
+  assert.equal((await created.json()).author, "member@example.com");
+  assert.equal(inserted[5], "member@example.com");
+  assert.equal((await worker.fetch(new Request(`${url}?document=guide%2Fa`, { headers }), env)).status, 200);
+  assert.equal((await worker.fetch(new Request(url, { method: "POST", headers, body: JSON.stringify({ ...data, body: " " }) }), env)).status, 400);
+});

@@ -16,7 +16,7 @@
         ><span class="brand-icon">D</span
         ><span id="site-title">Doxen</span></a
       ><button id="open-search" class="search-trigger">
-        <span class="search-label">검색...</span><kbd>⌘ / Ctrl K</kbd></button
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="search-label">검색...</span><kbd>⌘ / Ctrl K</kbd></button
       ><span class="header-label"></span>
     </header>
     <nav id="tabs" aria-label="문서 탭"></nav>
@@ -28,28 +28,33 @@
       </aside>
       <main id="content" tabindex="-1">
         <nav id="breadcrumb" aria-label="문서 경로"></nav>
+        <div class="compact-toc" hidden>
+          <button type="button" id="compact-toc-toggle" aria-expanded="false" aria-controls="compact-toc-links">☰ 목차</button>
+          <nav id="compact-toc-links" aria-label="이 페이지에서" hidden></nav>
+        </div>
         <article id="article"></article>
         <nav id="pagination" aria-label="이전 다음 문서"></nav>
       </main>
       <aside class="toc">
         <div class="eyebrow">이 페이지에서</div>
-        <nav id="toc" aria-label="목차"></nav>
+        <div class="toc-frame"><nav id="toc" aria-label="목차"></nav></div>
       </aside>
     </div>
     <dialog id="search-dialog" aria-labelledby="search-title">
       <div class="dialog-head">
-        <label id="search-title" for="global-search">전체 문서 검색</label
-        ><button id="close-search" aria-label="검색 닫기">
-          닫기 <kbd>Esc</kbd>
-        </button>
+        <label id="search-title" for="global-search">전체 문서 검색</label>
+        <button id="close-search" type="button" aria-label="검색 닫기">×</button>
       </div>
-      <input
-        id="global-search"
-        type="search"
-        placeholder="제목, 내용 또는 용어를 검색하세요"
-        autocomplete="off"
-      />
-      <p id="search-count" aria-live="polite"></p>
+      <div class="search-body">
+        <div class="global-search-field">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <span id="search-tag" hidden><span id="search-tag-label"></span><button id="clear-search-tag" type="button" aria-label="탭 범위 지우기">×</button></span>
+          <input id="global-search" type="search" placeholder="제목, 내용 또는 용어를 검색하세요" autocomplete="off" />
+          <button id="clear-search" type="button" aria-label="검색어 지우기" hidden>×</button>
+        </div>
+        <p id="search-count" aria-live="polite"></p>
+      </div>
+      <div id="search-suggestions" hidden></div>
       <div id="results"></div>
     </dialog>
     <script type="module" src="./app.js"></script>

@@ -1,5 +1,7 @@
-import { readFile, readdir, realpath } from "node:fs/promises";
+import { readFile, readdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import MarkdownIt from "markdown-it";
 import container from "markdown-it-container";
@@ -7,6 +9,19 @@ import GithubSlugger from "github-slugger";
 import sanitizeHtml from "sanitize-html";
 import readXlsxFile from "read-excel-file/node";
 import { inside } from "./config.js";
+
+const execFileAsync = promisify(execFile);
+
+async function modificationInfo(file, root) {
+  try {
+    const { stdout } = await execFileAsync("git", ["log", "-1", "--format=%aI%n%an", "--follow", "--", file], { cwd: root });
+    const [date, author] = stdout.trim().split("\n");
+    if (date) return { date, author };
+  } catch {
+    // Files outside Git or environments without Git use the filesystem timestamp.
+  }
+  return { date: (await stat(file)).mtime.toISOString() };
+}
 
 const assetExtensions = new Set([
   ".png",
@@ -64,6 +79,7 @@ export async function collectSite(config) {
         tab: tab.slug,
         path: relative,
         file,
+        modified: await modificationInfo(file, config.root),
         source: await readFile(file, /\.xlsx$/i.test(file) ? undefined : "utf8"),
       });
     }
