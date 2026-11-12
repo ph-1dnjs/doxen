@@ -1,6 +1,6 @@
 {
   "name": "@unana_dev/doxen",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "Config-first Markdown documentation sites with Korean and section search",
   "type": "module",
   "bin": {
