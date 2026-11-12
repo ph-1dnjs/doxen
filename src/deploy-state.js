@@ -69,6 +69,7 @@ export function deploymentFromState(state) {
   if (!state?.ready) return undefined;
   return {
     project: state.project,
+    ...(state.comments ? { comments: state.comments } : {}),
     access: { teamDomain: state.teamDomain, audiences: Object.values(state.apps).map((app) => app.aud), emails: state.emails },
   };
 }

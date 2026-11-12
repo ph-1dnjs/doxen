@@ -22,9 +22,13 @@ export function validateDeployment(deploy) {
   if (!Array.isArray(access.emails) || !access.emails.length ||
       access.emails.some((value) => typeof value !== "string" || !/^[^\s@*]+@[^\s@*]+\.[^\s@*]+$/.test(value)))
     throw new Error("deploy.access.emails에 허용할 이메일 주소를 하나 이상 설정하세요.");
+  if (deploy.comments && (typeof deploy.comments.databaseName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(deploy.comments.databaseName) ||
+      typeof deploy.comments.databaseId !== "string" || !/^[a-f0-9-]{36}$/i.test(deploy.comments.databaseId)))
+    throw new Error("deploy.comments에 올바른 databaseName과 databaseId를 설정하세요.");
   return {
     project: deploy.project,
     access: { teamDomain: access.teamDomain, audiences: access.audiences, emails: access.emails },
+    ...(deploy.comments ? { comments: deploy.comments } : {}),
   };
 }
 
@@ -94,6 +98,7 @@ export async function deploy(config, options) {
       name: settings.project,
       pages_build_output_dir: out,
       compatibility_date: "2026-10-08",
+      ...(settings.comments ? { d1_databases: [{ binding: "COMMENTS_DB", database_name: settings.comments.databaseName, database_id: settings.comments.databaseId }] } : {}),
     }));
     await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [wrangler, "pages", "deploy", out,
