@@ -566,3 +566,23 @@ npm pack
 **구조 한 줄 요약:** `bin/docs.js` → 설정 로더 → Markdown·섹션·첨부 처리 → 정적 빌드 또는 로컬 서버. 화면과 브라우저 검색 코드는 `client/`에 있습니다.
 
 궁금한 점이나 버그는 저장소 이슈로 남겨 주세요. 즐거운 문서 작성 되세요! 📚
+
+### 문서 댓글 설정
+
+댓글은 Cloudflare Access로 보호된 배포에서 선택적으로 사용할 수 있습니다. Cloudflare D1 데이터베이스를 만들고 패키지의 `src/comments.sql`을 해당 데이터베이스에 적용하세요. 예를 들어 프로젝트에 설치된 패키지를 기준으로 다음 명령을 실행합니다.
+
+```bash
+npx wrangler d1 execute 데이터베이스이름 --remote --file=node_modules/@unana_dev/doxen/src/comments.sql
+```
+
+직접 `docs.config.ts`에 배포 설정을 작성했다면 `deploy.comments: { databaseName: "데이터베이스이름", databaseId: "D1 데이터베이스 UUID" }`를 추가합니다. 자동 배포 설정을 사용한다면 `.doxen-deploy.json`의 최상위에 동일한 `comments` 객체를 추가한 뒤 다시 배포합니다. 배포 시 `COMMENTS_DB` D1 바인딩이 설정됩니다. 데이터베이스 생성과 SQL 적용은 별도로 필요하며, 로컬 미리보기와 정적 빌드에는 댓글 저장 기능이 없습니다.
+
+본문의 문구를 선택한 후 해당 문단 오른쪽의 버튼을 누르거나, 문구 선택 없이 버튼을 눌러 댓글을 작성합니다. 작성자는 Access의 이메일로 표시됩니다. 문단 내용이나 같은 내용의 문단 순서가 바뀌면 기존 댓글은 본문 아래의 위치를 찾을 수 없는 댓글 목록에서 확인할 수 있습니다.
+
+#### 매일 GitHub 이슈로 댓글 모으기
+
+설치된 패키지의 `src/templates/comment-report.yml`을 문서 저장소의 `.github/workflows/comment-report.yml`로 복사합니다. 저장소 Actions secrets에 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID`, D1 읽기 권한의 `CLOUDFLARE_D1_READ_TOKEN`을 등록하고, 기본 브랜치에 워크플로를 반영하세요. `npm ci`를 사용하는 예제이므로 프로젝트에 npm 잠금 파일이 필요합니다.
+
+저장소의 Actions variables에 배포된 문서 사이트 주소를 `DOXEN_SITE_URL`로 등록하세요. 설정 파일이 저장소 루트의 기본 이름이 아니라면 `DOXEN_CONFIG`에 저장소 기준 경로도 등록합니다. 보고서의 각 댓글에는 보고서 실행 시점 커밋의 GitHub 원본 파일 링크와 배포 사이트의 해당 댓글 링크가 표시됩니다. 현재 설정에서 문서를 찾지 못하면 링크 대신 안내 문구가 표시됩니다.
+
+매일 한국 시간 오전 8시에 전날 00:00~24:00의 댓글을 하나의 이슈로 작성합니다. 댓글은 문서별로 묶이며, 같은 문서 안에서는 작성 순서대로 표시됩니다. 댓글이 없으면 이슈를 만들지 않으며, 같은 날짜의 보고서 이슈가 이미 있으면 중복 생성하지 않습니다. Actions 화면의 수동 실행에서 날짜를 입력해 누락된 날을 다시 집계할 수 있습니다. 이슈 본문 양식은 패키지의 `src/comment-report.js`에서 확인할 수 있으며 필요에 맞게 복사해 수정하세요. 댓글 내용과 작성자 이메일이 이슈 저장소의 열람자에게 공개되므로 접근 권한을 확인하세요. GitHub 예약 실행은 지연되거나 누락될 수 있습니다.
