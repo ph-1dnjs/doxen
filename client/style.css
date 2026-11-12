@@ -1227,3 +1227,9 @@ body.has-comments .comment-panel { left: auto; right: var(--comment-panel-right)
   #compact-toc-links a { display: block; margin: 8px 0; color: #4b5563; font-size: 13px; }
   body.has-comments #breadcrumb { padding-right: 58px; }
 }
+
+.document-modified {
+  margin: -12px 0 24px;
+  color: #929ba5;
+  font-size: 12px;
+}

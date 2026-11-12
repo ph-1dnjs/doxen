@@ -559,10 +559,19 @@ function spreadsheetViewer(doc, rawSheets) {
   return viewer;
 }
 
+function renderModified(doc) {
+  if (!doc.modified?.date) return;
+  const date = new Date(doc.modified.date);
+  if (Number.isNaN(date.getTime())) return;
+  const label = `최종 수정 ${date.toLocaleDateString("ko-KR")}${doc.modified.author ? ` · ${doc.modified.author}` : ""}`;
+  $("#article h1").after(el("p", label, "document-modified"));
+}
+
 async function renderSpreadsheet(doc) {
   const article = $("#article");
   const content = el("p", "엑셀 파일을 불러오는 중입니다.", "sheet-message");
   article.replaceChildren(el("h1", doc.title), content);
+  renderModified(doc);
   try {
     const response = await fetch(doc.spreadsheet.data);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -652,6 +661,7 @@ function render() {
   $("#article").dataset.commentDocument = current.id;
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
+  renderModified(current);
   for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
     if (/^version\s*:\s*\S+/i.test(heading.textContent.trim()))
       heading.classList.add("document-version");

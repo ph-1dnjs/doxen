@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { init } from "../src/init.js";
 import { loadConfig } from "../src/config.js";
 import { collectSite } from "../src/content.js";
@@ -48,6 +49,20 @@ async function fixture(t) {
   );
   return root;
 }
+
+test("document modification information uses Git history or filesystem fallback", async (t) => {
+  const root = await fixture(t);
+  const config = await loadConfig(root);
+  const fallback = (await collectSite(config)).data.documents[0].modified;
+  assert.ok(!Number.isNaN(Date.parse(fallback.date)));
+  assert.equal(fallback.author, undefined);
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["add", "guide/start.md"], { cwd: root });
+  execFileSync("git", ["-c", "user.name=문서 작성자", "-c", "user.email=author@example.com", "commit", "-qm", "문서 추가"], { cwd: root });
+  const documents = (await collectSite(config)).data.documents;
+  assert.equal(documents.find((doc) => doc.tab === "guide").modified.author, "문서 작성자");
+  assert.equal(documents.find((doc) => doc.tab === "api").modified.author, undefined);
+});
 
 test("init preserves existing application scripts, config and documents; repeated init is stable", async (t) => {
   const root = await fixture(t);
