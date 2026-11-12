@@ -488,3 +488,47 @@ test("search filters by a tab tag and Backspace removes it", async ({ page }) =>
   await input.fill("공통");
   await expect(page.locator("#results .result")).toHaveCount(2);
 });
+
+test('nested list items each support comments and align their buttons', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><ol><li>상위 항목<ol><li>하위 항목</li></ol></li></ol>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [] }));
+  await page.goto('./');
+  const items = page.locator('#article li');
+  for (const item of await items.all()) {
+    const anchor = item.locator(':scope > .comment-anchor');
+    await expect(anchor.locator(':scope > .comment-trigger')).toHaveCount(1);
+    const offset = await anchor.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node.firstChild);
+      const text = range.getBoundingClientRect();
+      const button = node.querySelector('.comment-trigger').getBoundingClientRect();
+      return Math.abs((text.top + text.bottom - button.top - button.bottom) / 2);
+    });
+    expect(offset).toBeLessThan(3);
+    await anchor.locator(':scope > .comment-trigger').click({ force: true });
+    await expect(anchor.locator(':scope > .comment-panel')).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  const anchor = items.first().locator(':scope > .comment-anchor');
+  await anchor.evaluate((node) => {
+    const range = document.createRange();
+    range.selectNodeContents(node.firstChild);
+    const selection = window.getSelection();
+    selection.removeAllRanges(); selection.addRange(range);
+  });
+  await anchor.dispatchEvent('mouseup');
+  await expect(page.getByRole('button', { name: '댓글 추가' })).toBeVisible();
+});
+
+test('Markdown download provides the original file', async ({ page }) => {
+  await page.goto('./');
+  const link = page.getByRole('link', { name: 'Markdown 파일 다운로드' });
+  await expect(link).toHaveAttribute('download', /\.md$/);
+  const href = await link.getAttribute('href');
+  const response = await page.request.get(href);
+  expect(response.ok()).toBeTruthy();
+  expect(await response.text()).toContain('# ');
+});

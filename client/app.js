@@ -662,6 +662,19 @@ function render() {
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
   renderModified(current);
+  if (current.markdown) {
+    const heading = $("#article h1");
+    const title = el("div", undefined, "document-title");
+    heading.before(title);
+    title.append(heading);
+    const download = el("a", undefined, "document-download");
+    download.href = current.markdown;
+    download.download = current.path.split("/").at(-1);
+    download.setAttribute("aria-label", "Markdown 파일 다운로드");
+    download.title = "Markdown 파일 다운로드";
+    download.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>';
+    title.append(download);
+  }
   for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
     if (/^version\s*:\s*\S+/i.test(heading.textContent.trim()))
       heading.classList.add("document-version");

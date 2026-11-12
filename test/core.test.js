@@ -170,7 +170,8 @@ test("build includes only referenced assets, skips hidden and symlink files, and
   );
   const config = await loadConfig(root);
   const out = await build(config);
-  assert.equal((await readdir(path.join(out, "assets"))).length, 1);
+  assert.equal((await readdir(path.join(out, "assets"))).filter((name) => name.endsWith(".png")).length, 1);
+  assert.equal((await readdir(path.join(out, "assets"))).filter((name) => name.endsWith(".md")).length, 2);
   const data = await readFile(path.join(out, "site.json"), "utf8");
   assert.doesNotMatch(data, /SECRET|UNUSED|doxen-test-/);
   await build(config);

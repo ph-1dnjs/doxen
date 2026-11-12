@@ -14,9 +14,14 @@ const execFileAsync = promisify(execFile);
 
 async function modificationInfo(file, root) {
   try {
-    const { stdout } = await execFileAsync("git", ["log", "-1", "--format=%aI%n%an", "--follow", "--", file], { cwd: root });
-    const [date, author] = stdout.trim().split("\n");
-    if (date) return { date, author };
+    const { stdout } = await execFileAsync("git", ["log", "-1", "--format=%H%n%aI%n%an", "--follow", "--", file], { cwd: root });
+    const [commit, date, author] = stdout.trim().split("\n");
+    if (date) {
+      const { stdout: shallowPath } = await execFileAsync("git", ["rev-parse", "--git-path", "shallow"], { cwd: root });
+      const boundaries = await readFile(path.resolve(root, shallowPath.trim()), "utf8").catch(() => "");
+      if (!boundaries.split(/\s+/).includes(commit)) return { date, author };
+      return {};
+    }
   } catch {
     // Files outside Git or environments without Git use the filesystem timestamp.
   }
@@ -100,6 +105,9 @@ export async function collectSite(config) {
       delete doc.file;
       continue;
     }
+    const hash = createHash("sha256").update(doc.source).digest("hex").slice(0, 20);
+    assets.set(`${hash}.md`, Buffer.from(doc.source));
+    doc.markdown = `./assets/${hash}.md`;
     const slugger = new GithubSlugger();
     const md = new MarkdownIt({
       html: false,

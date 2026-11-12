@@ -16,7 +16,10 @@ export async function attachComments(article, documentId, commentId) {
   if (article.dataset.commentDocument !== documentId) return;
   document.body.classList.add('has-comments');
   const blocks = [...article.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, pre, blockquote, td, th')]
-    .filter((node) => !node.querySelector('p, li, pre, blockquote, td, th') && node.textContent.trim());
+    .filter((node) => {
+      if (node.tagName === 'LI') return [...node.childNodes].some((child) => !(child.nodeType === 1 && child.matches('ul, ol, p, pre, blockquote')) && child.textContent.trim());
+      return !node.querySelector('p, li, pre, blockquote, td, th') && node.textContent.trim();
+    });
   const occurrences = new Map();
   const matched = new Set();
   const anchors = new Map();
@@ -94,7 +97,8 @@ export async function attachComments(article, documentId, commentId) {
     popover.hidden = true;
   });
   for (const block of blocks) {
-    const text = block.textContent.trim();
+    const ownNodes = block.tagName === 'LI' ? [...block.childNodes].filter((child) => !(child.nodeType === 1 && child.matches('ul, ol, p, pre, blockquote'))) : null;
+    const text = ownNodes ? ownNodes.map((node) => node.textContent).join('').trim() : block.textContent.trim();
     const occurrence = occurrences.get(text) || 0;
     occurrences.set(text, occurrence + 1);
     const key = JSON.stringify([text, occurrence]);
@@ -103,8 +107,13 @@ export async function attachComments(article, documentId, commentId) {
     const wrapper = document.createElement('div');
     wrapper.className = 'comment-anchor';
     if (['LI', 'TD', 'TH'].includes(block.tagName)) {
-      wrapper.append(...block.childNodes);
-      block.append(wrapper);
+      if (ownNodes) {
+        block.insertBefore(wrapper, ownNodes[0]);
+        wrapper.append(...ownNodes);
+      } else {
+        wrapper.append(...block.childNodes);
+        block.append(wrapper);
+      }
     } else {
       block.before(wrapper);
       wrapper.append(block);
