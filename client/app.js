@@ -724,13 +724,45 @@ let searchTab = null;
 function renderResults() {
   const query = $("#global-search").value;
   const results = searchDocuments(searchTab ? site.documents.filter((doc) => doc.tab === searchTab.slug) : site.documents, query);
+  $("#clear-search").hidden = !query;
+  const suggestions = $("#search-suggestions");
+  suggestions.replaceChildren();
+  suggestions.hidden = true;
+  if (!searchTab && /^#[^ ]*$/.test(query)) {
+    const tabs = site.tabs.filter((tab) => tab.title.toLocaleLowerCase().includes(query.slice(1).toLocaleLowerCase()));
+    if (tabs.length) {
+      suggestions.hidden = false;
+      suggestions.append(el("p", "탭으로 범위 지정"));
+      for (const tab of tabs) {
+        const button = el("button", undefined, "search-suggestion");
+        button.type = "button";
+        button.append(el("span", `# ${tab.title}`), el("small", `문서 ${site.documents.filter((doc) => doc.tab === tab.slug).length}개`));
+        button.onclick = () => selectSearchTab(tab);
+        suggestions.append(button);
+      }
+    }
+  }
+  $("#search-count").hidden = !suggestions.hidden;
   $("#search-count").textContent = query.trim()
     ? results.length
-      ? `${results.length}개 결과${results.length === 80 ? " (최대 80개 표시)" : ""}`
+      ? `${searchTab ? `${searchTab.title} 탭에서 ` : ""}${results.length}개 결과${results.length === 80 ? " (최대 80개 표시)" : ""}`
       : "일치하는 내용이 없습니다."
     : searchTab ? `${searchTab.title} 탭에서 검색합니다.` : "한국어와 영문으로 모든 탭의 내용을 검색합니다.";
   $("#results").replaceChildren();
-  for (const { doc, section } of results) {
+  if (query.trim() && !results.length && suggestions.hidden) {
+    const empty = el("div", undefined, "search-empty");
+    empty.append(el("strong", searchTab ? `‘${searchTab.title}’에 ‘${query}’ 결과가 없어요` : `‘${query}’ 검색 결과가 없어요`));
+    if (searchTab) {
+      const otherCount = searchDocuments(site.documents, query).length;
+      empty.append(el("p", `전체 탭에서 ${otherCount}개를 찾았습니다.`));
+      const button = el("button", "모든 탭에서 검색");
+      button.type = "button";
+      button.onclick = clearSearchTab;
+      empty.append(button);
+    }
+    $("#results").append(empty);
+  }
+  for (const { doc, section } of suggestions.hidden ? results : []) {
     const link = el("a", undefined, "result");
     link.href = route(doc.id, section.anchor);
     const title = el("strong", section.title);
@@ -759,8 +791,28 @@ function renderResults() {
   }
 }
 
+function selectSearchTab(tab) {
+  searchTab = tab;
+  $("#global-search").value = "";
+  $("#search-tag-label").textContent = `# ${tab.title}`;
+  $("#search-tag").hidden = false;
+  renderResults();
+  $("#global-search").focus();
+}
+function clearSearchTab() {
+  searchTab = null;
+  $("#search-tag").hidden = true;
+  renderResults();
+  $("#global-search").focus();
+}
+function positionSearch() {
+  const rect = $("#content").getBoundingClientRect();
+  dialog.style.left = `${rect.left}px`;
+  dialog.style.width = `${rect.width}px`;
+}
 const openSearch = () => {
   if (!site) return;
+  positionSearch();
   dialog.showModal();
   $("#global-search").focus();
   renderResults();
@@ -788,6 +840,9 @@ document.addEventListener('keydown', (event) => {
 });
 $("#open-search").onclick = openSearch;
 $("#close-search").onclick = () => dialog.close();
+$("#clear-search-tag").onclick = clearSearchTab;
+$("#clear-search").onclick = () => { $("#global-search").value = ""; renderResults(); $("#global-search").focus(); };
+window.addEventListener("resize", () => { if (dialog.open) positionSearch(); });
 $("#global-search").oninput = (event) => {
   const input = event.target;
   if (!searchTab && !event.isComposing) {
@@ -795,7 +850,7 @@ $("#global-search").oninput = (event) => {
     if (tab) {
       searchTab = tab;
       input.value = input.value.slice(tab.title.length + 2);
-      $("#search-tag").textContent = `#${tab.title}`;
+      $("#search-tag-label").textContent = `# ${tab.title}`;
       $("#search-tag").hidden = false;
     }
   }
@@ -803,13 +858,11 @@ $("#global-search").oninput = (event) => {
 };
 $("#global-search").onkeydown = (event) => {
   if (event.key === "Backspace" && !event.isComposing && searchTab && !event.target.value && event.target.selectionStart === 0) {
-    searchTab = null;
-    $("#search-tag").hidden = true;
-    renderResults();
+    clearSearchTab();
   } else if (event.key === "ArrowDown") {
     event.preventDefault();
-    $("#results a")?.focus();
-  } else if (event.key === "Enter") $("#results a")?.click();
+    $("#search-suggestions:not([hidden]) button, #results a")?.focus();
+  } else if (event.key === "Enter") $("#search-suggestions:not([hidden]) button, #results a")?.click();
 };
 $("#results").onkeydown = (event) => {
   if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
