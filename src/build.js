@@ -53,7 +53,7 @@ export async function siteFiles(config, dev = false) {
       `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${config.icon.background}"/><text x="16" y="16" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="${config.icon.color}">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</text></svg>`,
     ),
   );
-  for (const name of ["index.html", "app.js", "style.css", "search.js"])
+  for (const name of ["index.html", "app.js", "style.css", "search.js", "comments.js"])
     files.set(`/${name}`, await readFile(path.join(client, name)));
   for (const output of (await getPresentationAssets()).outputFiles) {
     const name = path.relative(path.join(client, "generated"), output.path).split(path.sep).join("/");

@@ -289,3 +289,163 @@ test("configured color reaches navigation, focus and search highlights", async (
   await expect(page.locator("article mark")).toHaveCSS("background-color", highlight);
   await expect(page.locator("#tabs a.active")).toHaveCSS("border-bottom-color", "rgb(234, 179, 8)");
 });
+
+test("comments attach a selected passage and remain expanded", async ({ page }) => {
+  let saved;
+  const comments = [];
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "문서", tabs: [{ slug: "guide", title: "안내" }],
+    documents: [{ id: "guide/test", tab: "guide", path: "test.md", title: "테스트", toc: [], sections: [], html: "<h1>테스트</h1><p>선택할 문장입니다.</p>" }],
+  } }));
+  await page.route("**/__doxen/comments**", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: comments });
+    saved = route.request().postDataJSON();
+    const item = { ...saved, author: "member@example.com", created_at: new Date().toISOString() };
+    comments.push(item);
+    return route.fulfill({ status: 201, json: item });
+  });
+  await page.goto("./");
+  const paragraph = page.locator("#article p").first();
+  await expect(paragraph.locator("..").locator(".comment-trigger")).toHaveCount(1);
+  await paragraph.evaluate((node) => {
+    const range = document.createRange();
+    range.setStart(node.firstChild, 0);
+    range.setEnd(node.firstChild, 3);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await paragraph.dispatchEvent("mouseup");
+  await page.getByRole("button", { name: "댓글 추가" }).click();
+  await expect(paragraph.locator(".comment-draft-highlight")).toHaveText("선택할");
+  await expect(paragraph.locator("..").locator(".comment-selection")).toHaveCount(0);
+  await expect(paragraph.locator("..").locator(".comment-header")).toHaveCount(0);
+  await paragraph.locator("..").getByLabel("댓글 내용").fill("확인해 주세요");
+  await expect(paragraph.locator(".comment-draft-highlight")).toHaveText("선택할");
+  await expect(paragraph.locator("..").locator(".comment-foot")).toBeHidden();
+  await paragraph.locator("..").getByRole("button", { name: "댓글 등록" }).click();
+  await expect(page.locator(".comment-panel .comment-card-head")).toContainText("member@example.com");
+  expect(saved.quote).toBe("선택할");
+  await expect(paragraph.locator(".comment-draft-highlight")).toHaveCount(0);
+  await expect(paragraph.locator(".comment-highlight")).toHaveText("선택할");
+  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await paragraph.locator("..").getByLabel("댓글 내용").fill("두 번째 댓글");
+  await paragraph.locator("..").getByRole("button", { name: "댓글 등록" }).click();
+  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await expect(page.getByText("두 번째 댓글")).toBeVisible();
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.getByRole("button", { name: "댓글 2개 더보기" }).click();
+  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await expect(page.getByText("두 번째 댓글")).toBeVisible();
+  await expect(page.locator(".comment-list details, .comment-list summary")).toHaveCount(0);
+});
+
+test('comment lane and table of contents adapt without overlapping', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [{ title: '본문', anchor: 'body', level: 2 }], sections: [], html: '<h1>테스트</h1><h2 id="body">본문</h2><p>댓글이 있는 문단입니다.</p>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [{ id: '1', block: JSON.stringify(['댓글이 있는 문단입니다.', 0]), author: 'a@example.com', body: '내용', quote: '', created_at: '2026-11-11T00:00:00Z' }] }));
+  for (const width of [1800, 1400, 1200, 1000, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('./');
+    const trigger = page.getByRole('button', { name: '댓글 1개 더보기' });
+    await expect(trigger).toBeVisible();
+    const buttonBox = await trigger.boundingBox();
+    const articleBox = await page.locator('#article').boundingBox();
+    expect(buttonBox.x).toBeGreaterThanOrEqual(articleBox.x + articleBox.width - 1);
+    expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(width);
+    if (width >= 1200) {
+      const toc = page.locator('.toc');
+      await expect(toc).toBeVisible();
+      const tocBox = await toc.boundingBox();
+      expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(tocBox.x);
+    } else {
+      const toggle = page.getByRole('button', { name: '☰ 목차' });
+      await expect(toggle).toBeVisible();
+      await toggle.click();
+      await expect(page.locator('#compact-toc-links')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#compact-toc-links')).toBeHidden();
+    }
+    await trigger.click();
+    const panel = page.locator('.comment-anchor > .comment-panel:not([hidden])');
+    await expect(panel).toBeVisible();
+    const card = await panel.boundingBox();
+    expect(card.x).toBeGreaterThanOrEqual(0);
+    expect(card.x + card.width).toBeLessThanOrEqual(width);
+    if (width >= 1600) await expect(page.locator('body')).toHaveClass(/comment-card-open/);
+    if (width < 1600) expect(card.x + card.width).toBeCloseTo(width - 16, 0);
+    await page.locator('body').click({ position: { x: 1, y: 1 } });
+    await expect(page.locator('body')).not.toHaveClass(/comment-card-open/);
+  }
+});
+
+test('long comments scroll with the full comment list', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><p>문단입니다.</p>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [{ id: '1', block: JSON.stringify(['문단입니다.', 0]), author: 'a@example.com', body: '긴 댓글입니다.\n'.repeat(80), quote: '', created_at: '2026-11-11T00:00:00Z' }] }));
+  await page.goto('./');
+  await page.getByRole('button', { name: '댓글 1개 더보기' }).click();
+  const sizes = await page.locator('.comment-list').evaluate((list) => {
+    const body = list.querySelector('.comment-body');
+    return { listScrollable: list.scrollHeight > list.clientHeight, bodyScrollable: body.scrollHeight > body.clientHeight, bodyOverflow: getComputedStyle(body).overflowY };
+  });
+  expect(sizes).toEqual({ listScrollable: true, bodyScrollable: false, bodyOverflow: 'visible' });
+  const frame = page.locator('.comment-list-frame');
+  await expect(frame).toHaveClass(/has-below/);
+  await expect(frame).not.toHaveClass(/has-above/);
+  await page.locator('.comment-list').evaluate((list) => { list.scrollTop = list.scrollHeight; });
+  await expect(frame).toHaveClass(/has-above/);
+  await expect(frame).not.toHaveClass(/has-below/);
+  const initialHeight = await page.locator('.comment-list').evaluate((list) => list.clientHeight);
+  await page.setViewportSize({ width: 1280, height: 500 });
+  const shorterHeight = await page.locator('.comment-list').evaluate((list) => list.clientHeight);
+  expect(shorterHeight).toBeLessThan(initialHeight);
+});
+
+test('selected text across formatting remains visible while composing and clears on close', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><p>시작 <strong>강조 문구</strong> 끝</p>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [] }));
+  await page.goto('./');
+  const paragraph = page.locator('#article p').first();
+  await expect(paragraph.locator('..').locator('.comment-trigger')).toHaveCount(1);
+  await paragraph.evaluate((node) => {
+    const range = document.createRange();
+    range.setStart(node.firstChild, 1);
+    range.setEnd(node.querySelector('strong').firstChild, 2);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await paragraph.dispatchEvent('mouseup');
+  await page.getByRole('button', { name: '댓글 추가' }).click();
+  await expect(paragraph.locator('.comment-draft-highlight')).toHaveCount(2);
+  await page.getByLabel('댓글 내용').filter({ visible: true }).fill('임시 댓글');
+  await expect(paragraph.locator('.comment-draft-highlight')).toHaveCount(2);
+  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await expect(paragraph.locator('.comment-draft-highlight')).toHaveCount(0);
+  await expect(paragraph).toHaveText('시작 강조 문구 끝');
+});
+
+test('comment link opens the correct document and comment', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><p>첫 문단</p><p>대상 문단</p>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [
+    { id: 'other', block: JSON.stringify(['첫 문단', 0]), author: 'a@example.com', body: '첫 댓글', quote: '', created_at: '2026-11-11T00:00:00Z' },
+    { id: 'target', block: JSON.stringify(['대상 문단', 0]), author: 'b@example.com', body: '찾는 댓글', quote: '', created_at: '2026-11-11T00:00:00Z' },
+  ] }));
+  await page.goto('./#/guide%2Ftest/comment/target');
+  const target = page.locator('[data-comment-id="target"]');
+  await expect(target).toBeVisible();
+  await expect(target).toContainText('찾는 댓글');
+  await expect(page.locator('[data-comment-id="other"]')).toBeHidden();
+  await expect(page.locator('textarea:focus')).toHaveCount(0);
+});

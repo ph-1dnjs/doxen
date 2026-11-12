@@ -1,4 +1,5 @@
 import { searchDocuments, matchRanges, matchesRow } from "./search.js";
+import { attachComments } from "./comments.js";
 
 const $ = (selector) => document.querySelector(selector);
 const el = (tag, text, className) => {
@@ -581,9 +582,17 @@ async function renderSpreadsheet(doc) {
 }
 
 function render() {
-  let id, anchor;
+  document.body.classList.remove('has-comments', 'comment-card-open');
+  $('#article').commentLaneObserver?.disconnect();
+  $('#article').commentDismissController?.abort();
+  $('.compact-toc').hidden = true;
+  $('#compact-toc-links').hidden = true;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', 'false');
+  let id, anchor, commentId;
   try {
-    [id, anchor] = location.hash.slice(2).split("/").map(decodeURIComponent);
+    [id, anchor, commentId] = location.hash.slice(2).split("/").map(decodeURIComponent);
+    if (anchor !== 'comment') commentId = undefined;
+    if (commentId) anchor = undefined;
   } catch {
     id = "invalid";
   }
@@ -600,6 +609,7 @@ function render() {
   const isFolder = folderPath && site.documents.some(
     (doc) => doc.tab === activeTab && doc.path.startsWith(folderPath),
   );
+  $("#article").dataset.commentDocument = "";
   document.body.classList.toggle("is-spreadsheet", Boolean(current?.spreadsheet));
   document.body.classList.remove("sheet-fullscreen");
   renderNavigation(isFolder ? folderPath : null);
@@ -639,6 +649,7 @@ function render() {
     window.scrollTo(0, 0);
     return;
   }
+  $("#article").dataset.commentDocument = current.id;
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
   for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
@@ -657,6 +668,8 @@ function render() {
     link.style.paddingLeft = `${Math.max(0, heading.level - 2) * 12}px`;
     $("#toc").append(link);
   }
+  $('#compact-toc-links').replaceChildren(...[...$('#toc').children].map((link) => link.cloneNode(true)));
+  $('.compact-toc').hidden = !$('#toc').children.length;
   const siblings = site.documents.filter((doc) => doc.tab === activeTab);
   const index = siblings.indexOf(current);
   for (const [label, doc] of [
@@ -673,6 +686,7 @@ function render() {
     $("#pagination").append(link);
   }
   attachTableSearches();
+  attachComments($("#article"), current.id, commentId);
   const diagrams = [...$("#article").querySelectorAll("pre > code")].filter(
     (code) => code.classList.contains("language-mermaid") ||
       (!code.className && /^\s*sequenceDiagram\b/.test(code.textContent)),
@@ -738,6 +752,27 @@ const openSearch = () => {
   $("#global-search").focus();
   renderResults();
 };
+const closeCompactToc = () => {
+  $('#compact-toc-links').hidden = true;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', 'false');
+};
+$('#compact-toc-toggle').onclick = () => {
+  const links = $('#compact-toc-links');
+  links.hidden = !links.hidden;
+  $('#compact-toc-toggle').setAttribute('aria-expanded', String(!links.hidden));
+};
+$('#compact-toc-links').onclick = (event) => {
+  if (event.target.closest('a')) closeCompactToc();
+};
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.compact-toc')) closeCompactToc();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('#compact-toc-links').hidden) {
+    closeCompactToc();
+    $('#compact-toc-toggle').focus();
+  }
+});
 $("#open-search").onclick = openSearch;
 $("#close-search").onclick = () => dialog.close();
 $("#global-search").oninput = renderResults;
