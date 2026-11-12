@@ -523,6 +523,32 @@ test('nested list items each support comments and align their buttons', async ({
   await expect(page.getByRole('button', { name: '댓글 추가' })).toBeVisible();
 });
 
+test('line comments align with and highlight the whole block', async ({ page }) => {
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h2>제목</h2><p>첫 줄<br>두 번째 <strong>줄</strong></p>' }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({ json: [] }));
+  await page.goto('./');
+  for (const block of await page.locator('#article h2, #article p').all()) {
+    const anchor = block.locator('..');
+    const offset = await block.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const content = range.getBoundingClientRect();
+      const button = node.parentElement.querySelector('.comment-trigger').getBoundingClientRect();
+      return Math.abs((content.top + content.bottom - button.top - button.bottom) / 2);
+    });
+    expect(offset).toBeLessThan(3);
+    await anchor.locator('.comment-trigger').click({ force: true });
+    await expect(block.locator('.comment-draft-highlight')).not.toHaveCount(0);
+    const highlighted = await block.locator('.comment-draft-highlight').allTextContents();
+    expect(highlighted.join('')).toBe((await block.textContent()));
+    await page.keyboard.press('Escape');
+    await expect(block.locator('.comment-draft-highlight')).toHaveCount(0);
+  }
+});
+
 test('Markdown download provides the original file', async ({ page }) => {
   await page.goto('./');
   const link = page.getByRole('link', { name: 'Markdown 파일 다운로드' });

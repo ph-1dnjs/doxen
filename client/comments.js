@@ -23,6 +23,7 @@ export async function attachComments(article, documentId, commentId) {
   const occurrences = new Map();
   const matched = new Set();
   const anchors = new Map();
+  const anchorBlocks = new Map();
   const popover = document.createElement('button');
   popover.type = 'button';
   popover.className = 'comment-selection-trigger';
@@ -106,6 +107,7 @@ export async function attachComments(article, documentId, commentId) {
     matched.add(key);
     const wrapper = document.createElement('div');
     wrapper.className = 'comment-anchor';
+    anchorBlocks.set(wrapper, block);
     if (['LI', 'TD', 'TH'].includes(block.tagName)) {
       if (ownNodes) {
         block.insertBefore(wrapper, ownNodes[0]);
@@ -298,6 +300,13 @@ export async function attachComments(article, documentId, commentId) {
       for (const other of article.querySelectorAll('.comment-anchor > .comment-panel')) other.hidden = true;
       for (const other of article.querySelectorAll('.comment-trigger.is-open')) other.classList.remove('is-open');
       draftQuote = quote;
+      if (!range) {
+        range = document.createRange();
+        if (['LI', 'TD', 'TH'].includes(block.tagName)) {
+          range.setStart(wrapper, 0);
+          range.setEndBefore(button);
+        } else range.selectNodeContents(block);
+      }
       showDraftHighlight(block, range);
       panel.hidden = false;
       button.classList.add('is-open');
@@ -323,6 +332,15 @@ export async function attachComments(article, documentId, commentId) {
   const alignButtons = () => {
     const right = article.getBoundingClientRect().right;
     for (const wrapper of anchors.keys()) {
+      const range = document.createRange();
+      const block = anchorBlocks.get(wrapper);
+      if (['LI', 'TD', 'TH'].includes(block.tagName)) {
+        range.setStart(wrapper, 0);
+        range.setEndBefore(wrapper.querySelector('.comment-trigger'));
+      } else range.selectNodeContents(block);
+      const content = range.getBoundingClientRect();
+      const bounds = wrapper.getBoundingClientRect();
+      wrapper.style.setProperty('--comment-center', `${(content.top + content.bottom) / 2 - bounds.top}px`);
       wrapper.style.setProperty('--comment-offset', `${Math.max(0, right - wrapper.getBoundingClientRect().right)}px`);
       wrapper.style.setProperty('--comment-panel-right', `${wrapper.getBoundingClientRect().right - window.innerWidth + 16}px`);
     }
