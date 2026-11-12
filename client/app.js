@@ -719,14 +719,16 @@ function render() {
   } else window.scrollTo(0, 0);
 }
 
+let searchTab = null;
+
 function renderResults() {
   const query = $("#global-search").value;
-  const results = searchDocuments(site.documents, query);
+  const results = searchDocuments(searchTab ? site.documents.filter((doc) => doc.tab === searchTab.slug) : site.documents, query);
   $("#search-count").textContent = query.trim()
     ? results.length
       ? `${results.length}개 결과${results.length === 80 ? " (최대 80개 표시)" : ""}`
       : "일치하는 내용이 없습니다."
-    : "한국어와 영문으로 모든 탭의 내용을 검색합니다.";
+    : searchTab ? `${searchTab.title} 탭에서 검색합니다.` : "한국어와 영문으로 모든 탭의 내용을 검색합니다.";
   $("#results").replaceChildren();
   for (const { doc, section } of results) {
     const link = el("a", undefined, "result");
@@ -786,9 +788,25 @@ document.addEventListener('keydown', (event) => {
 });
 $("#open-search").onclick = openSearch;
 $("#close-search").onclick = () => dialog.close();
-$("#global-search").oninput = renderResults;
+$("#global-search").oninput = (event) => {
+  const input = event.target;
+  if (!searchTab && !event.isComposing) {
+    const tab = site.tabs.find((item) => input.value.startsWith(`#${item.title} `));
+    if (tab) {
+      searchTab = tab;
+      input.value = input.value.slice(tab.title.length + 2);
+      $("#search-tag").textContent = `#${tab.title}`;
+      $("#search-tag").hidden = false;
+    }
+  }
+  renderResults();
+};
 $("#global-search").onkeydown = (event) => {
-  if (event.key === "ArrowDown") {
+  if (event.key === "Backspace" && !event.isComposing && searchTab && !event.target.value && event.target.selectionStart === 0) {
+    searchTab = null;
+    $("#search-tag").hidden = true;
+    renderResults();
+  } else if (event.key === "ArrowDown") {
     event.preventDefault();
     $("#results a")?.focus();
   } else if (event.key === "Enter") $("#results a")?.click();

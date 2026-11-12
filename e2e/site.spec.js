@@ -466,3 +466,24 @@ test('comment link opens the correct document and comment', async ({ page }) => 
   await expect(page.locator('[data-comment-id="other"]')).toBeHidden();
   await expect(page.locator('textarea:focus')).toHaveCount(0);
 });
+
+test("search filters by a tab tag and Backspace removes it", async ({ page }) => {
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "문서", tabs: [{ slug: "policy", title: "정책" }, { slug: "api", title: "API 문서" }],
+    documents: ["policy", "api"].map((tab) => ({ id: `${tab}/one`, tab, path: "one.md", title: tab, html: `<h1>${tab}</h1>`, toc: [], sections: [{ title: tab, text: "공통 검색어", anchor: "" }], modified: { date: "2026-01-02T00:00:00Z", author: "작성자" } })),
+  } }));
+  await page.goto("./");
+  await expect(page.locator(".document-modified")).toContainText("작성자");
+  await page.getByRole("button", { name: /검색/ }).first().click();
+  const input = page.locator("#global-search");
+  await input.fill("#API 문서 ");
+  await expect(page.locator("#search-tag")).toHaveText("#API 문서");
+  await input.fill("공통");
+  await expect(page.locator("#results .result")).toHaveCount(1);
+  await expect(page.locator("#results .result")).toContainText("API 문서");
+  await input.fill("");
+  await input.press("Backspace");
+  await expect(page.locator("#search-tag")).toBeHidden();
+  await input.fill("공통");
+  await expect(page.locator("#results .result")).toHaveCount(2);
+});
