@@ -1,0 +1,12 @@
+body.api-page .layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.api-page :is(.sidebar, .toc, #pagination, #breadcrumb) { display: none; }
+body.api-page main { padding: 0; }
+.api-reference-view {
+  display: block;
+  width: 100%;
+  border: 0;
+  margin: 0;
+  background: #fff;
+}

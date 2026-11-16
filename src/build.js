@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { extendSiteFiles } from "./api.js";
 import { collectSite } from "./content.js";
 import { inside } from "./config.js";
 import { build as bundle } from "esbuild";
@@ -59,6 +60,8 @@ export async function siteFiles(config, dev = false) {
     const name = path.relative(path.join(client, "generated"), output.path).split(path.sep).join("/");
     files.set(`/${name}`, Buffer.from(output.contents));
   }
+  for (const name of ["page.js", "viewer.js", "model.js", "viewer.css"])
+    files.set(`/api-reference/${name}`, await readFile(path.join(client, "api-reference", name)));
   let html = files.get("/index.html").toString();
   html = html.replace(
     '<span class="brand-icon">D</span',
@@ -88,6 +91,7 @@ export async function siteFiles(config, dev = false) {
   files.set("/index.html", Buffer.from(html));
   files.set("/site.json", Buffer.from(JSON.stringify(data)));
   for (const [name, buffer] of assets) files.set(`/assets/${name}`, buffer);
+  await extendSiteFiles(files, config);
   return files;
 }
 
