@@ -12,6 +12,7 @@ try {
     options: {
       config: { type: "string" },
       port: { type: "string", default: "4173" },
+      url: { type: "string" },
       file: { type: "string" },
       instruction: { type: "string" },
       help: { type: "boolean", short: "h" },
@@ -19,10 +20,10 @@ try {
     },
   });
   const [command, ...extra] = positionals;
-  if (values.version) console.log("0.2.1");
+  if (values.version) console.log("0.3.3");
   else if (values.help || !command)
     console.log(
-      `Doxen — 저장소 기반 문서 사이트\n\n  docs init                 설정과 스크립트 생성\n  docs dev [--port 4173]    로컬 미리보기 및 자동 갱신\n  docs build                .docs-dist 정적 사이트 생성\n  docs deploy               최초 설정 안내 및 비공개 Cloudflare Pages 배포\n  docs ai --file <문서.md> --instruction "변경 요청"\n                            표준 양식과 AI 작업 지침을 stdout으로 출력\n\n옵션: --config <파일> (dev/build/deploy/ai), --help, --version\n동일 명령: doxen <명령>`,
+      `Doxen — 저장소 기반 문서 사이트\n\n  docs init                 설정과 스크립트 생성\n  docs dev [--port 4173]    로컬 미리보기 및 자동 갱신\n  docs build                .docs-dist 정적 사이트 생성\n  docs deploy               최초 설정 안내 및 비공개 Cloudflare Pages 배포\n  docs api:sync [--file <명세.json> | --url <주소>]  OpenAPI 명세 가져오기\n  docs ai --file <문서.md> --instruction "변경 요청"\n                            표준 양식과 AI 작업 지침을 stdout으로 출력\n\n옵션: --config <파일> (dev/build/deploy/ai), --help, --version\n동일 명령: doxen <명령>`,
     );
   else {
     if (extra.length) throw new Error(`알 수 없는 인자: ${extra.join(" ")}`);
@@ -30,6 +31,9 @@ try {
       if (values.config)
         throw new Error("init은 --config 옵션을 지원하지 않습니다.");
       await init(process.cwd());
+    } else if (command === "api:sync") {
+      const { syncOpenApi } = await import("../src/openapi.js");
+      await syncOpenApi(await loadConfig(process.cwd(), values.config), values);
     } else if (command === "build")
       console.log(
         `빌드 완료: ${await build(await loadConfig(process.cwd(), values.config))}`,

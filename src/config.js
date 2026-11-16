@@ -102,10 +102,28 @@ export async function loadConfig(cwd, configPath) {
     slugs.add(tab.slug);
     tabs.push({ title: tab.title, slug: tab.slug, dir });
   }
+  let api;
+  if (config.api !== undefined) {
+    const value = config.api;
+    if (!value || typeof value !== "object" || typeof value.document !== "string" || !value.document.trim())
+      throw new Error("api.document에 API 화면으로 사용할 문서 ID를 지정하세요.");
+    api = { document: value.document };
+    for (const [key, fallback] of [["spec", "api/openapi.json"], ["metadata", "api/spec-metadata.json"]]) {
+      const input = value[key] ?? fallback;
+      if (typeof input !== "string" || !input.trim()) throw new Error(`api.${key}에 파일 경로를 지정하세요.`);
+      const target = path.resolve(root, input);
+      const parent = await realpath(path.dirname(target));
+      const actual = await realpath(target).catch((error) => { if (error.code !== "ENOENT") throw error; return target; });
+      if (!inside(root, parent) || !inside(root, actual)) throw new Error(`api.${key}는 설정 파일 하위 경로여야 합니다.`);
+      api[key] = target;
+    }
+    if (api.spec === api.metadata) throw new Error("API 명세와 메타데이터 경로는 달라야 합니다.");
+  }
   const deploymentState = await readDeploymentState(root, file);
   if (deploymentState && config.deploy !== undefined)
     throw new Error("docs.config의 deploy와 .doxen-deploy.json이 함께 있습니다. 사용할 배포 설정 하나만 유지하세요.");
   return {
+    api,
     deploymentState,
     deploy: config.deploy ?? deploymentFromState(deploymentState),
     title: config.title,

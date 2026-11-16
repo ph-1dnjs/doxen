@@ -590,3 +590,26 @@ npx wrangler d1 execute 데이터베이스이름 --remote --file=node_modules/@u
 댓글은 문서별로 묶이며, 같은 문서 안에서는 작성 순서대로 표시됩니다. 댓글이 없으면 이슈를 만들지 않으며, 같은 날짜의 보고서 이슈가 이미 있으면 중복 생성하지 않습니다. Actions 화면의 수동 실행에서 날짜를 입력해 누락된 날을 다시 집계할 수 있습니다. 이슈 본문 양식은 패키지의 `src/comment-report.js`에서 확인할 수 있으며 필요에 맞게 복사해 수정하세요. 댓글 내용과 작성자 이메일이 이슈 저장소의 열람자에게 공개되므로 접근 권한을 확인하세요. GitHub 예약 실행은 지연되거나 누락될 수 있습니다.
 
 문서별 최종 수정자와 수정일을 표시하려면 빌드 환경에 전체 Git 이력이 필요합니다. GitHub Actions에서는 `actions/checkout`에 `fetch-depth: 0`을 설정하세요. 얕은 복제의 경계 커밋은 파일의 실제 마지막 수정인지 확인할 수 없어 해당 정보가 표시되지 않습니다.
+
+## OpenAPI 문서
+
+API 탭의 Markdown 문서 하나를 API 화면으로 지정할 수 있습니다. 기존 API 화면의 기능별 탐색, 요청·응답 모델과 예시, 전체 검색을 함께 제공합니다.
+
+```ts
+api: {
+  document: 'api/README', // 탭 slug + 확장자 없는 문서 경로
+  spec: './api/openapi.json',
+  metadata: './api/spec-metadata.json',
+},
+```
+
+```bash
+npx doxen api:sync --file /path/to/openapi.json
+npx doxen api:sync --url https://example.com/v3/api-docs
+```
+
+주소는 `OPENAPI_URL`로도 지정할 수 있습니다. Basic 인증은 `OPENAPI_BASIC_USER`, `OPENAPI_BASIC_PASSWORD` 환경 변수를 사용합니다. 명세는 OpenAPI 3 JSON이며, 가져오기 실패 시 명령이 실패하고 기존 명세를 유지합니다. 주소를 사용하는 경우 일시적인 실패를 최대 3회 재시도합니다. `--config`도 지원합니다. 생성 파일은 Git에서 제외하고 CI에서는 명세 가져오기 성공 후 배포하세요. 인증 정보를 포함한 URL과 리디렉션은 허용하지 않습니다.
+
+명세가 없으면 API 화면에 미생성 안내를 표시합니다. `spec`과 `metadata` 경로는 설정 파일 하위에 두고, 상위 폴더는 미리 만들어 두세요. API 설정을 생략하면 일반 문서 사이트로 동작합니다.
+
+Markdown의 Mermaid 다이어그램은 바로 렌더링되며 우상단 확대 아이콘으로 모달을 엽니다. API 설명의 Mermaid 코드 블록과 `<div class="mermaid">`는 버튼을 누르면 렌더링됩니다. `<details><summary>흐름 보기</summary>…</details>` 안에 넣으면 summary를 버튼 제목으로 사용합니다. 모달에서 확대·축소, 100%, 화면 맞춤, 전체화면을 사용할 수 있습니다. Esc 또는 닫기로 돌아옵니다. 전체화면 API 지원 여부는 브라우저에 따릅니다.

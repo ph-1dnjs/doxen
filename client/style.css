@@ -1296,3 +1296,20 @@ body.has-comments .comment-panel { left: auto; right: var(--comment-panel-right)
 .document-download { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 6px; color: #6b7280; }
 .document-download:hover { background: #f3f4f6; color: #191919; }
 .document-title > .comment-anchor { flex: 1; min-width: 0; }
+
+.diagram-expand { display:block; margin:0 0 8px auto; padding:6px 12px; cursor:pointer; }
+.diagram-dialog { position:fixed; inset:16px; margin:0; box-sizing:border-box; width:calc(100vw - 32px); max-width:none; height:calc(100dvh - 32px); max-height:none; padding:0; border:1px solid #cbd5e1; border-radius:12px; background:white; color:#172033; overflow:hidden; }
+.diagram-dialog[open] { display:flex; flex-direction:column; }
+.diagram-dialog::backdrop { background:#0f172aaa; }
+.diagram-dialog.is-fullscreen { inset:0; width:100vw; height:100dvh; border:0; border-radius:0; }
+.diagram-toolbar { flex-shrink:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px; border-bottom:1px solid #e2e8f0; }
+.diagram-toolbar strong { margin-right:auto; }
+.diagram-toolbar button { padding:6px 10px; cursor:pointer; }
+.diagram-toolbar output { min-width:4ch; text-align:center; }
+.diagram-viewport { position:relative; flex:1; min-height:0; overflow:hidden; touch-action:none; user-select:none; cursor:grab; background:#f8fafc; }
+.diagram-viewport.is-dragging { cursor:grabbing; }
+.diagram-canvas { position:absolute; left:0; top:0; width:max-content; transform-origin:0 0; }
+.diagram-viewer-status { margin:0; padding:0 12px; }
+body.api-page .layout { grid-template-columns:minmax(0,1fr); }
+body.api-page :is(.sidebar,.toc,#pagination,#breadcrumb,.compact-toc) { display:none; }
+body.api-page main { padding:0; }

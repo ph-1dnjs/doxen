@@ -1,3 +1,4 @@
+import { renderApiReference } from "./api-reference/page.js";
 import { searchDocuments, matchRanges, matchesRow } from "./search.js";
 import { attachComments } from "./comments.js";
 
@@ -621,6 +622,7 @@ function render() {
   $("#article").dataset.commentDocument = "";
   document.body.classList.toggle("is-spreadsheet", Boolean(current?.spreadsheet));
   document.body.classList.remove("sheet-fullscreen");
+  document.body.classList.toggle("api-page", Boolean(current?.apiReference));
   renderNavigation(isFolder ? folderPath : null);
   $("#toc").replaceChildren();
   $("#pagination").replaceChildren();
@@ -656,6 +658,12 @@ function render() {
     $("#pagination").hidden = true;
     renderSpreadsheet(current);
     window.scrollTo(0, 0);
+    return;
+  }
+  if (current.apiReference) {
+    $(".toc").hidden = true;
+    $("#pagination").hidden = true;
+    renderApiReference(current, anchor);
     return;
   }
   $("#article").dataset.commentDocument = current.id;

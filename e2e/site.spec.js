@@ -61,8 +61,56 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
   });
   await page.setViewportSize({ width: 2048, height: 1200 });
   await page.goto("./");
-  await expect(page.locator(".diagram svg")).toHaveCount(3);
+  await expect(page.locator(".diagram > svg")).toHaveCount(3);
   await expect(page.locator(".diagram").first()).toContainText("사업자 정보 확인");
+  const expand = page.getByRole("button", { name: "다이어그램 크게 보기" }).first();
+  await expand.click();
+  const modal = page.getByRole("dialog", { name: "다이어그램 크게 보기" });
+  await expect(modal).toBeVisible();
+  await modal.getByRole("button", { name: "100%", exact: true }).click();
+  await expect(modal.locator("output")).toHaveText("100%");
+  await modal.getByRole("button", { name: "확대", exact: true }).click();
+  await expect(modal.locator("output")).toHaveText("125%");
+  await modal.getByRole("button", { name: "축소", exact: true }).click();
+  await expect(modal.locator("output")).toHaveText("100%");
+  await modal.getByRole("button", { name: "화면 맞춤" }).click();
+  await page.setViewportSize({ width: 910, height: 966 });
+  const bounds = await modal.boundingBox();
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(966);
+  const viewport = modal.locator(".diagram-viewport");
+  const image = modal.locator(".diagram-canvas > svg");
+  const area = await viewport.boundingBox();
+  await expect.poll(async () => {
+    const rect = await image.boundingBox();
+    return Math.abs(rect.x + rect.width / 2 - area.x - area.width / 2);
+  }).toBeLessThan(1);
+  const before = await image.boundingBox();
+  const px = area.x + area.width * 0.35;
+  const py = area.y + area.height * 0.4;
+  await page.mouse.move(px, py);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => (await image.boundingBox()).width).toBeGreaterThan(before.width);
+  const after = await image.boundingBox();
+  expect(Math.abs((px - before.x) / before.width - (px - after.x) / after.width)).toBeLessThan(0.005);
+  expect(Math.abs((py - before.y) / before.height - (py - after.y) / after.height)).toBeLessThan(0.005);
+  await page.mouse.down();
+  await page.mouse.move(px + 70, py + 50, { steps: 5 });
+  await page.mouse.up();
+  const moved = await image.boundingBox();
+  expect(Math.abs(moved.x - after.x - 70)).toBeLessThan(1);
+  expect(Math.abs(moved.y - after.y - 50)).toBeLessThan(1);
+  await page.mouse.wheel(0, 300);
+  await expect.poll(async () => (await image.boundingBox()).width).toBeLessThan(moved.width);
+  await modal.getByRole("button", { name: "화면 맞춤" }).click();
+  const fitted = await image.boundingBox();
+  expect(fitted.x).toBeGreaterThanOrEqual(area.x);
+  expect(fitted.y).toBeGreaterThanOrEqual(area.y);
+  expect(fitted.x + fitted.width).toBeLessThanOrEqual(area.x + area.width + 1);
+  expect(fitted.y + fitted.height).toBeLessThanOrEqual(area.y + area.height + 1);
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
+  await expect(expand).toBeFocused();
   await expect(page.locator(".diagram-error")).toHaveCount(1);
   await expect(page.locator("pre code.language-mermaid")).toHaveText("invalid diagram syntax\n");
   await expect(page.locator("pre code.language-js")).toContainText("일반 코드는 유지");
@@ -75,7 +123,7 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
   await page.locator("#tabs").getByRole("link", { name: "레퍼런스" }).click();
   await expect(page.locator(".diagram")).toHaveCount(0);
   await page.goBack();
-  await expect(page.locator(".diagram svg")).toHaveCount(3);
+  await expect(page.locator(".diagram > svg")).toHaveCount(3);
 });
 
 test("folders show immediate child cards and sidebar labels follow the active tab", async ({ page }, testInfo) => {
@@ -557,4 +605,26 @@ test('Markdown download provides the original file', async ({ page }) => {
   const response = await page.request.get(href);
   expect(response.ok()).toBeTruthy();
   expect(await response.text()).toContain('# ');
+});
+
+test("API reference uses custom document routes and opens description diagrams from buttons", async ({ page }) => {
+  await page.route('**/site.json', route => route.fulfill({ json: {
+    title:'API', tabs:[{slug:'reference',title:'API'}], documents:[{id:'reference/index',tab:'reference',path:'index.md',title:'API',toc:[],sections:[],apiReference:true}],
+  }}));
+  await page.route('**/api-reference/spec-metadata.json', route => route.fulfill({json:{available:true}}));
+  await page.route('**/api-reference/documentation.json', route => route.fulfill({json:{
+    openapi:'3.0.3',info:{title:'API',version:'1'},paths:{'/members':{get:{summary:'회원 조회',tags:['회원'],responses:{200:{description:'성공'}},'x-doc-description':'<details><summary>회원 흐름</summary><div class="mermaid">flowchart LR\n A[조회]-->B[완료]</div></details>'}}},
+  }}));
+  await page.goto('./#/reference%2Findex/');
+  await expect(page.getByRole('heading',{name:'회원 조회'})).toBeVisible();
+  await expect(page.locator('.api-reference-view').locator('svg')).toHaveCount(0);
+  await page.getByRole('button',{name:'회원 흐름'}).click();
+  const modal = page.getByRole('dialog',{name:'다이어그램 크게 보기'});
+  await expect(modal.locator('svg')).toContainText('조회');
+  await modal.getByRole('button',{name:'전체화면',exact:true}).click();
+  await expect(modal.getByRole('button',{name:'전체화면 종료'})).toBeVisible();
+  await modal.getByRole('button',{name:'전체화면 종료'}).click();
+  await modal.getByRole('button',{name:'다이어그램 닫기'}).click();
+  await page.locator('.api-reference-view').getByRole('link',{name:'이 API 링크'}).click();
+  await expect(page).toHaveURL(/reference%2Findex\/GET%20%2Fmembers/);
 });

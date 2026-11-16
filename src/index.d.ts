@@ -3,6 +3,7 @@ export interface DocsConfig {
   description?: string;
   color?: string;
   icon?: string | { background?: string; color?: string; border?: string };
+  api?: { document: string; spec?: string; metadata?: string };
   deploy?: {
     project: string;
     comments?: { databaseName: string; databaseId: string };
