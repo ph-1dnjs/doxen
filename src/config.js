@@ -119,6 +119,15 @@ export async function loadConfig(cwd, configPath) {
     }
     if (api.spec === api.metadata) throw new Error("API 명세와 메타데이터 경로는 달라야 합니다.");
   }
+  let repository;
+  if (config.repository !== undefined) {
+    try {
+      if (typeof config.repository !== "string") throw new Error();
+      const url = new URL(config.repository);
+      if (url.protocol !== "https:" || url.hostname !== "github.com" || url.username || url.password || !/^\/[^/]+\/[^/]+\/?$/.test(url.pathname) || url.search || url.hash) throw new Error();
+      repository = url.href;
+    } catch { throw new Error("repository에 올바른 GitHub HTTPS 저장소 주소를 지정하세요."); }
+  }
   const deploymentState = await readDeploymentState(root, file);
   if (deploymentState && config.deploy !== undefined)
     throw new Error("docs.config의 deploy와 .doxen-deploy.json이 함께 있습니다. 사용할 배포 설정 하나만 유지하세요.");
@@ -128,6 +137,7 @@ export async function loadConfig(cwd, configPath) {
     deploy: config.deploy ?? deploymentFromState(deploymentState),
     title: config.title,
     description: config.description || "",
+    repository,
     icon,
     color,
     tabs,

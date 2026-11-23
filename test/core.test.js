@@ -50,6 +50,15 @@ async function fixture(t) {
   return root;
 }
 
+test("project root README is collected as a separate home page", async (t) => {
+  const root = await fixture(t);
+  await writeFile(path.join(root, "README.md"), "# 프로젝트 소개\n\n[시작하기](guide/start.md)");
+  const { data } = await collectSite(await loadConfig(root));
+  assert.equal(data.home.title, "프로젝트 소개");
+  assert.match(data.home.html, /#\/guide%2Fstart/);
+  assert.equal(data.documents.length, 2);
+});
+
 test("document modification information uses Git history or filesystem fallback", async (t) => {
   const root = await fixture(t);
   const config = await loadConfig(root);

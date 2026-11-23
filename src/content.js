@@ -76,6 +76,17 @@ async function walk(dir) {
 
 export async function collectSite(config) {
   const documents = [];
+  const homeFile = path.join(config.root, "README.md");
+  const homeSource = await readFile(homeFile, "utf8").catch((error) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (homeSource !== null && !inside(config.root, await realpath(homeFile)))
+    throw new Error("README.md는 설정 파일 하위에 있어야 합니다.");
+  const home = homeSource === null ? null : {
+    id: "__home", path: "README.md", file: homeFile,
+    modified: await modificationInfo(homeFile, config.root), source: homeSource,
+  };
   for (const tab of config.tabs) {
     for (const file of await walk(tab.dir)) {
       const relative = path.relative(tab.dir, file).split(path.sep).join("/");
@@ -89,9 +100,9 @@ export async function collectSite(config) {
       });
     }
   }
-  const byFile = new Map(documents.map((doc) => [doc.file, doc]));
+  const byFile = new Map([...documents, ...(home ? [home] : [])].map((doc) => [doc.file, doc]));
   const assets = new Map();
-  for (const doc of documents) {
+  for (const doc of [...documents, ...(home ? [home] : [])]) {
     if (/\.xlsx$/i.test(doc.path)) {
       const hash = createHash("sha256").update(doc.source).digest("hex").slice(0, 20);
       const sheets = await readXlsxFile(doc.source, { trim: false });
@@ -162,6 +173,7 @@ export async function collectSite(config) {
           );
           continue;
         }
+        if (doc === home && !assetExtensions.has(path.extname(local).toLowerCase())) continue;
         if (/\.md$/i.test(local))
           throw new Error(`깨진 문서 링크: ${doc.path} → ${href}`);
         if (!assetExtensions.has(path.extname(local).toLowerCase()))
@@ -169,7 +181,7 @@ export async function collectSite(config) {
             `지원하지 않는 로컬 첨부 파일: ${doc.path} → ${href}`,
           );
         const actual = await realpath(local);
-        if (!config.tabs.some((tab) => inside(tab.dir, actual)))
+        if (!(doc === home ? inside(config.root, actual) : config.tabs.some((tab) => inside(tab.dir, actual))))
           throw new Error(`문서 폴더 밖의 첨부 파일: ${href}`);
         const buffer = await readFile(actual);
         const name = `${createHash("sha256").update(buffer).digest("hex").slice(0, 20)}${path.extname(actual).toLowerCase()}`;
@@ -215,7 +227,9 @@ export async function collectSite(config) {
     data: {
       title: config.title,
       description: config.description,
+      ...(config.repository ? { repository: config.repository } : {}),
       tabs: config.tabs.map(({ title, slug }) => ({ title, slug })),
+      ...(home ? { home } : {}),
       documents,
     },
     assets,

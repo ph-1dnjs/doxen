@@ -126,6 +126,39 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
   await expect(page.locator(".diagram > svg")).toHaveCount(3);
 });
 
+test("logo, tabs and folders prefer their root README", async ({ page }) => {
+  const documents = [
+    ["guide", "first.md", "첫 문서"],
+    ["guide", "README.md", "가이드 홈"],
+    ["guide", "자료/README.md", "자료 소개"],
+    ["guide", "자료/문서.md", "자료 문서"],
+    ["api", "first.md", "API 첫 문서"],
+    ["api", "README.md", "API 홈"],
+  ].map(([tab, path, title]) => ({
+    id: `${tab}/${path.replace(/\.md$/, "")}`, tab, path, title,
+    html: `<h1>${title}</h1>`, toc: [], sections: [],
+  }));
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "Doxen", tabs: [{ slug: "guide", title: "가이드" }, { slug: "api", title: "API" }], documents,
+    home: { id: "__home", path: "README.md", title: "프로젝트 소개", html: "<h1>프로젝트 소개</h1>", toc: [], sections: [] },
+  } }));
+  await page.goto("./");
+  await expect(page.locator("article h1")).toHaveText("프로젝트 소개");
+  await expect(page.locator(".toc")).toBeHidden();
+  await expect(page.locator(".compact-toc")).toBeHidden();
+  await page.locator("#documents summary a").getByText("자료", { exact: true }).click();
+  await expect(page.locator("article h1")).toHaveText("자료 소개");
+  await page.reload();
+  await expect(page.locator("article h1")).toHaveText("자료 소개");
+  await page.locator("#tabs").getByText("API", { exact: true }).click();
+  await expect(page.locator("article h1")).toHaveText("API 홈");
+  await page.locator(".brand").click();
+  await expect(page.locator("article h1")).toHaveText("프로젝트 소개");
+  await page.locator("#tabs").getByText("가이드", { exact: true }).click();
+  await expect(page.locator("article h1")).toHaveText("가이드 홈");
+  await expect(page.locator(".toc")).toBeHidden();
+});
+
 test("folders show immediate child cards and sidebar labels follow the active tab", async ({ page }, testInfo) => {
   const documents = [
     ["policy", "0. 공통 데이터 정의/01. 회원", "01. 회원"],
@@ -230,6 +263,14 @@ test("global Korean search locates a section and highlights matching content", a
   await page.keyboard.press("Enter");
   await expect(page.locator("#search-dialog")).not.toBeVisible();
   await expect(page.locator("article mark")).toHaveText("산출물");
+  const tableSearch = page.getByRole("searchbox", { name: "팀 용어 빠르게 찾기" });
+  await tableSearch.fill("산출물");
+  const overlap = page.locator("article mark[data-hit]:not([data-table-hit]) mark[data-table-hit]");
+  await expect(overlap).toHaveText("산출물");
+  await expect(overlap).toHaveCSS("background-color", "rgb(234, 179, 8)");
+  await expect(overlap).toHaveCSS("box-shadow", "none");
+  await tableSearch.fill("");
+  await expect(page.locator("article mark[data-hit]")).toHaveText("산출물");
   await expect(page.locator("#page-search")).toHaveCount(0);
   await expect(page).toHaveURL(/%EC%9A%A9%EC%96%B4-%EC%82%AC%EC%A0%84/);
   await page.locator("#open-search").click();
@@ -258,7 +299,9 @@ test("table searches are automatic and keep filters independent", async ({ page 
   await expect(tables.nth(0).locator("tbody tr:visible")).toHaveCount(2);
   await expect(tables.nth(1).locator("tbody tr:visible")).toHaveCount(1);
   await expect(tables.nth(1).locator("tbody tr:visible")).toContainText("산출물");
+  await expect(tables.nth(1).locator("tbody tr:visible mark[data-hit]")).toHaveText("산출물");
   await second.fill("");
+  await expect(tables.nth(1).locator("mark[data-hit]")).toHaveCount(0);
   await expect(tables.nth(1).locator("tbody tr:visible")).toHaveCount(4);
   await expect(tables.nth(0).locator("tbody tr:visible")).toHaveCount(2);
   await first.fill("없는검색어");
@@ -599,7 +642,8 @@ test('line comments align with and highlight the whole block', async ({ page }) 
 
 test('Markdown download provides the original file', async ({ page }) => {
   await page.goto('./');
-  const link = page.getByRole('link', { name: 'Markdown 파일 다운로드' });
+  await page.getByLabel('문서 액션 더보기').click();
+  const link = page.getByRole('link', { name: '문서 다운로드' });
   await expect(link).toHaveAttribute('download', /\.md$/);
   const href = await link.getAttribute('href');
   const response = await page.request.get(href);
@@ -627,4 +671,115 @@ test("API reference uses custom document routes and opens description diagrams f
   await modal.getByRole('button',{name:'다이어그램 닫기'}).click();
   await page.locator('.api-reference-view').getByRole('link',{name:'이 API 링크'}).click();
   await expect(page).toHaveURL(/reference%2Findex\/GET%20%2Fmembers/);
+});
+
+test('comment resolution, reopening and own deletion update the document', async ({ page }) => {
+  await page.addInitScript(() => { window.__DOXEN_SITE__ = undefined; });
+  const block = JSON.stringify(['댓글 테스트 문단', 0]);
+  const comments = [{ id: 'one', block, author: 'me@example.com', mine: true, body: '내 댓글', quote: '', resolved: 0, created_at: '2026-11-11T00:00:00Z' }];
+  await page.route('**/site.json', (route) => route.fulfill({ json: { title: 'Doxen', tabs: [{ slug: 'guide', title: '가이드' }], documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><p>댓글 테스트 문단</p>' }] } }));
+  await page.route('**/__doxen/comments**', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') return route.fulfill({ json: comments });
+    if (method === 'PATCH') comments.forEach((item) => { item.resolved = route.request().postDataJSON().resolved; });
+    if (method === 'PUT') comments[0].body = route.request().postDataJSON().body.trim();
+    if (method === 'DELETE') comments.splice(0, 1);
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto('./#/guide%2Ftest');
+  await page.getByRole('button', { name: '댓글 1개 더보기' }).click();
+  await page.getByRole('button', { name: '해결 완료로 표시' }).click();
+  await expect(page.getByRole('button', { name: '댓글 1개 더보기' })).toBeHidden();
+  await page.getByLabel('문서 액션 더보기').click();
+  await page.getByRole('button', { name: '댓글 모두 보기' }).click();
+  await page.getByRole('tab', { name: '해결됨 1' }).click();
+  await page.getByRole('button', { name: /내 댓글/ }).click();
+  await page.getByRole('button', { name: '미해결로 변경' }).click();
+  await page.getByRole('button', { name: '내 댓글 수정' }).click();
+  await page.getByRole('textbox', { name: '댓글 수정' }).fill('취소할 내용');
+  await page.getByRole('button', { name: '취소', exact: true }).click();
+  await expect(page.locator('.comment-body')).toHaveText('내 댓글');
+  await page.getByRole('button', { name: '내 댓글 수정' }).click();
+  await page.getByRole('textbox', { name: '댓글 수정' }).fill('수정한 댓글');
+  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.locator('.comment-body')).toHaveText('수정한 댓글');
+  await page.getByRole('button', { name: '내 댓글 삭제' }).click();
+  await expect(page.getByRole('dialog', { name: '댓글을 삭제할까요?' })).toBeVisible();
+  await page.getByRole('button', { name: '취소', exact: true }).click();
+  await expect(page.locator('.comment-body')).toHaveText('수정한 댓글');
+  await page.getByRole('button', { name: '내 댓글 삭제' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '삭제', exact: true }).click();
+  await expect(page.locator('.comment-panel .comment-body')).toHaveCount(0);
+});
+
+
+test('document actions show icons, share the page and close outside', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.route('**/site.json', async (route) => {
+    const response = await route.fetch();
+    const data = await response.json(); data.repository = 'https://github.com/example/docs';
+    await route.fulfill({ json: data });
+  });
+  await page.goto('./');
+  const actions = page.locator('.document-actions');
+  const rightOffset = await actions.evaluate((node) => node.closest('.document-title').getBoundingClientRect().right - node.getBoundingClientRect().right);
+  expect(Math.abs(rightOffset)).toBeLessThan(1);
+  await page.getByLabel('문서 액션 더보기').click();
+  await expect(page.getByRole('button', { name: '댓글 모두 보기' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '공유하기' })).toBeVisible();
+  const github = page.getByRole('link', { name: 'GitHub 저장소 바로가기' });
+  await expect(github).toHaveAttribute('href', 'https://github.com/example/docs');
+  await expect(github).toHaveCSS('text-decoration-line', 'none');
+  await expect(page.locator('.document-actions-menu svg')).toHaveCount(5);
+  await expect(page.locator('.document-actions-menu > :not([role=separator])')).toHaveText(['문서 다운로드', '댓글 모두 보기', '공유하기', 'GitHub 저장소 바로가기']);
+  await expect(page.locator('.document-actions-divider')).toBeVisible();
+  const gap = await page.locator('.document-actions-menu').evaluate((menu) => menu.getBoundingClientRect().top - menu.previousElementSibling.getBoundingClientRect().bottom);
+  expect(gap).toBe(8);
+  await page.getByRole('button', { name: '공유하기' }).click();
+  await expect(page.getByText('링크가 복사되었습니다')).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
+  await page.locator('#breadcrumb').click();
+  await expect(actions).not.toHaveAttribute('open', '');
+  await page.getByLabel('문서 액션 더보기').click();
+  await page.keyboard.press('Escape');
+  await expect(actions).not.toHaveAttribute('open', '');
+});
+
+
+test('header and navigation stay visible while scrolling and preserve heading anchors', async ({ page }) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 700 });
+    await page.goto('./#/guide%2F01-introduction');
+    await page.evaluate(() => window.scrollTo(0, 650));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    const bounds = await page.locator('.site-header').boundingBox();
+    expect(Math.abs(bounds.y)).toBeLessThan(1);
+    await expect(page.locator('#open-search')).toBeVisible();
+    await expect(page.locator('#tabs')).toBeVisible();
+    await page.evaluate(() => document.querySelector('#문서를-연결하는-방법').scrollIntoView());
+    const heading = await page.locator('#문서를-연결하는-방법').boundingBox();
+    expect(heading.y).toBeGreaterThanOrEqual(bounds.height);
+  }
+});
+
+
+test('comment avatars use the server-assigned colors including the current viewer', async ({ page }) => {
+  const block = JSON.stringify(['색상 확인 문단', 0]);
+  await page.route('**/site.json', (route) => route.fulfill({ json: { title: '문서', tabs: [{ slug: 'guide', title: '안내' }], documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [], sections: [], html: '<h1>테스트</h1><p>색상 확인 문단</p>' }] } }));
+  await page.route('**/__doxen/comments**', (route) => route.fulfill({
+    headers: { 'X-Doxen-Viewer': 'me%40example.com', 'X-Doxen-Avatar-Index': '1' },
+    json: [
+      { id: '1', block, author: 'first@example.com', avatar_index: 0, body: '첫 댓글', quote: '', created_at: '2026-11-11T00:00:00Z' },
+      { id: '2', block, author: 'me@example.com', avatar_index: 1, mine: true, body: '내 댓글', quote: '', created_at: '2026-11-11T00:00:00Z' },
+    ],
+  }));
+  await page.goto('./#/guide%2Ftest');
+  const trigger = page.getByRole('button', { name: '댓글 2개 더보기' });
+  await expect(trigger.locator('.comment-avatar').nth(0)).toHaveCSS('background-color', 'rgb(47, 107, 79)');
+  await expect(trigger.locator('.comment-avatar').nth(1)).toHaveCSS('background-color', 'rgb(62, 91, 169)');
+  await trigger.click();
+  const panel = page.locator('.comment-panel:not([hidden])');
+  await expect(panel.locator('.comment-card-head .comment-avatar').nth(1)).toHaveCSS('background-color', 'rgb(62, 91, 169)');
+  await expect(panel.locator('.comment-input-row .comment-avatar')).toHaveText('M');
+  await expect(panel.locator('.comment-input-row .comment-avatar')).toHaveCSS('background-color', 'rgb(62, 91, 169)');
 });
