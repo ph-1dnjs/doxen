@@ -15,16 +15,28 @@ let site;
 let current;
 let activeTab;
 let pendingQuery = "";
+const folderReadme = (tab, folder = "") => site.documents.find(
+  (doc) => doc.tab === tab && doc.path.toLowerCase() === `${folder}readme.md`.toLowerCase(),
+);
+const tabHome = (tab) => folderReadme(tab) || site.documents.find((doc) => doc.tab === tab);
 const dialog = $("#search-dialog");
+document.addEventListener("click", (event) => {
+  const actions = document.querySelector(".document-actions[open]");
+  if (actions && !actions.contains(event.target)) actions.open = false;
+});
+document.addEventListener("keydown", (event) => {
+  const actions = document.querySelector(".document-actions[open]");
+  if (event.key === "Escape" && actions) { actions.open = false; actions.querySelector("summary").focus(); }
+});
 
-function clearMarks(root) {
-  for (const mark of root.querySelectorAll("mark[data-hit]"))
+function clearMarks(root, selector = "mark[data-hit]") {
+  for (const mark of root.querySelectorAll(selector))
     mark.replaceWith(document.createTextNode(mark.textContent));
   root.normalize();
 }
 
-function highlight(root, query) {
-  clearMarks(root);
+function highlight(root, query, tableSearch = false) {
+  clearMarks(root, tableSearch ? "mark[data-table-hit]" : "mark[data-hit]");
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       return node.parentElement.closest(".section-tools, pre, .diagram, script, style, [hidden]")
@@ -46,6 +58,7 @@ function highlight(root, query) {
       );
       const mark = el("mark", node.textContent.slice(start, end));
       mark.dataset.hit = "";
+      if (tableSearch) mark.dataset.tableHit = "";
       fragment.append(mark);
       hits.push(mark);
       offset = end;
@@ -85,12 +98,14 @@ function attachTableSearches() {
     input.placeholder = "표 안에서 검색";
     const rows = [...table.querySelectorAll("tbody tr")];
     input.oninput = () => {
-      clearMarks(table);
-      for (const row of rows)
+      clearMarks(table, "mark[data-table-hit]");
+      for (const row of rows) {
         row.hidden = !matchesRow(
           [...row.cells].map((cell) => cell.textContent).join(" "),
           input.value,
         );
+        if (!row.hidden && input.value.trim()) highlight(row, input.value, true);
+      }
     };
     tools.append(label, input);
     table.before(tools);
@@ -103,7 +118,7 @@ function renderNavigation(folderPath) {
   ).title;
   $("#tabs").replaceChildren();
   for (const tab of site.tabs) {
-    const first = site.documents.find((doc) => doc.tab === tab.slug);
+    const first = tabHome(tab.slug);
     const link = el("a", tab.title, tab.slug === activeTab ? "active" : "");
     link.href = first ? route(first.id) : route(`${tab.slug}/`);
     if (tab.slug === activeTab) link.setAttribute("aria-current", "page");
@@ -141,7 +156,7 @@ function renderNavigation(folderPath) {
 
 function renderBreadcrumb(parts = [], currentItem) {
   const tab = site.tabs.find((item) => item.slug === activeTab);
-  const first = site.documents.find((doc) => doc.tab === activeTab);
+  const first = tabHome(activeTab);
   const items = [
     { title: tab.title, id: first?.id || `${activeTab}/` },
     ...parts.map((title, index) => ({
@@ -607,8 +622,8 @@ function render() {
     id = "invalid";
   }
   current = id
-    ? site.documents.find((doc) => doc.id === id)
-    : site.documents[0];
+    ? (id === site.home?.id ? site.home : site.documents.find((doc) => doc.id === id))
+    : (site.home || tabHome(site.tabs[0].slug));
   activeTab =
     current?.tab ||
     site.tabs.find((tab) => id?.startsWith(`${tab.slug}/`))?.slug ||
@@ -616,6 +631,7 @@ function render() {
   const folderPath = !current && id?.startsWith(`${activeTab}/`) && id.endsWith("/")
     ? id.slice(activeTab.length + 1)
     : null;
+  if (folderPath) current = folderReadme(activeTab, folderPath);
   const isFolder = folderPath && site.documents.some(
     (doc) => doc.tab === activeTab && doc.path.startsWith(folderPath),
   );
@@ -627,8 +643,8 @@ function render() {
   $("#toc").replaceChildren();
   $("#pagination").replaceChildren();
   $(".toc").hidden = !current;
-  $("#pagination").hidden = !current;
-  if (isFolder) {
+  $("#pagination").hidden = !current || current === site.home;
+  if (isFolder && !current) {
     renderFolder(folderPath);
     return;
   }
@@ -649,9 +665,10 @@ function render() {
     return;
   }
   document.title = `${current.title} · ${site.title}`;
-  renderBreadcrumb(current.path.split("/").slice(0, -1), {
-    title: current.path.split("/").at(-1).replace(/\.md$/i, ""),
-    id: current.id,
+  if (current === site.home) $("#breadcrumb").replaceChildren();
+  else renderBreadcrumb(current.path.split("/").slice(0, folderPath ? -2 : -1), {
+    title: folderPath ? folderPath.split("/").at(-2) : current.path.split("/").at(-1).replace(/\.md$/i, ""),
+    id: folderPath ? id : current.id,
   });
   if (current.spreadsheet) {
     $(".toc").hidden = true;
@@ -670,18 +687,44 @@ function render() {
   $("#article").innerHTML = current.html;
   if (!$("#article h1")) $("#article").prepend(el("h1", current.title));
   renderModified(current);
-  if (current.markdown) {
+  {
     const heading = $("#article h1");
     const title = el("div", undefined, "document-title");
     heading.before(title);
     title.append(heading);
-    const download = el("a", undefined, "document-download");
-    download.href = current.markdown;
-    download.download = current.path.split("/").at(-1);
-    download.setAttribute("aria-label", "Markdown 파일 다운로드");
-    download.title = "Markdown 파일 다운로드";
-    download.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>';
-    title.append(download);
+    const actions = el("details", undefined, "document-actions");
+    const toggle = el("summary");
+    toggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>';
+    toggle.setAttribute("aria-label", "문서 액션 더보기");
+    const menu = el("div", undefined, "document-actions-menu");
+    const icon = (paths) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+    const allComments = el("button");
+    allComments.type = "button"; allComments.id = "show-all-comments"; allComments.disabled = true;
+    allComments.title = "댓글을 사용할 수 없습니다";
+    allComments.innerHTML = `${icon('<path d="M20.5 11.5a8.5 8.5 0 0 1-8.5 8.5H4l2.6-3.5A8.5 8.5 0 1 1 20.5 11.5Z"/>')}<span>댓글 모두 보기</span>`;
+    const share = el("button"); share.type = "button";
+    share.innerHTML = `${icon('<path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L11 5"/><path d="M14 11a5 5 0 0 0-7.1 0L4.8 13.1a5 5 0 0 0 7.1 7.1L13 19"/>')}<span>공유하기</span>`;
+    share.onclick = async () => {
+      try { await navigator.clipboard.writeText(location.href); share.querySelector('span').textContent = '링크가 복사되었습니다'; }
+      catch { share.querySelector('span').textContent = '링크 복사에 실패했습니다'; }
+    };
+    actions.addEventListener('toggle', () => { if (!actions.open) share.querySelector('span').textContent = '공유하기'; });
+    const github = site.repository ? el("a") : el("button");
+    if (site.repository) { github.href = site.repository; github.target = "_blank"; github.rel = "noopener noreferrer"; }
+    else { github.type = "button"; github.disabled = true; github.title = "GitHub 저장소가 설정되지 않았습니다"; }
+    github.className = "document-github";
+    github.innerHTML = `${icon('<path d="M5 19.5V5a2 2 0 0 1 2-2h12v17H7.5A2.5 2.5 0 0 0 5 22m0-2.5A2.5 2.5 0 0 1 7.5 17H19"/>')}<span>GitHub 저장소 바로가기</span><svg class="document-external-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h6v6M19 5l-9 9"/><path d="M19 14v5H5V5h5"/></svg>`;
+    if (current.markdown) {
+      const download = el("a", undefined, "document-download");
+      download.href = current.markdown; download.download = current.path.split("/").at(-1);
+      download.setAttribute("aria-label", "문서 다운로드");
+      download.innerHTML = `${icon('<path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/>')}<span>문서 다운로드</span>`;
+      menu.append(download);
+    }
+    menu.append(allComments, share);
+    const divider = el("div", undefined, "document-actions-divider"); divider.setAttribute("role", "separator");
+    menu.append(divider, github);
+    actions.append(toggle, menu); title.append(actions);
   }
   for (const heading of $("#article").querySelectorAll("h2, h3, h4, h5, h6")) {
     if (/^version\s*:\s*\S+/i.test(heading.textContent.trim()))
@@ -699,6 +742,7 @@ function render() {
     link.style.paddingLeft = `${Math.max(0, heading.level - 2) * 12}px`;
     $("#toc").append(link);
   }
+  $(".toc").hidden = !$("#toc").children.length;
   $('#compact-toc-links').replaceChildren(...[...$('#toc').children].map((link) => link.cloneNode(true)));
   requestAnimationFrame(updateTocFades);
   $('.compact-toc').hidden = !$('#toc').children.length;

@@ -30,11 +30,19 @@ export function accessWorker(access, keys = createRemoteJWKSet(
       if (url.pathname === "/__doxen/comments") {
         const headers = { "Cache-Control": "private, no-store" };
         if (!env.COMMENTS_DB) return new Response("댓글 저장소가 설정되지 않았습니다.", { status: 503, headers });
+        const ensureAvatars = async () => {
+          await env.COMMENTS_DB.prepare("INSERT OR IGNORE INTO comment_avatars (email) SELECT value FROM json_each(?) AS e WHERE NOT EXISTS (SELECT 1 FROM comment_avatars a WHERE a.email = e.value) ORDER BY CAST(e.key AS INTEGER)").bind(JSON.stringify([...emails])).run();
+          await env.COMMENTS_DB.prepare("INSERT OR IGNORE INTO comment_avatars (email) SELECT lower(c.author) FROM comments c WHERE NOT EXISTS (SELECT 1 FROM comment_avatars a WHERE a.email = lower(c.author)) GROUP BY lower(c.author) ORDER BY min(c.created_at), min(c.id)").run();
+        };
         if (request.method === "GET") {
           const document = url.searchParams.get("document");
           if (!document || document.length > 500) return new Response("잘못된 문서", { status: 400, headers });
-          const rows = await env.COMMENTS_DB.prepare("SELECT id, block, quote, body, author, created_at FROM comments WHERE document = ? ORDER BY created_at, id").bind(document).all();
-          return Response.json(rows.results, { headers });
+          await ensureAvatars();
+          const me = await env.COMMENTS_DB.prepare("SELECT position - 1 AS avatar_index FROM comment_avatars WHERE email = ?").bind(email).first();
+          headers["X-Doxen-Viewer"] = encodeURIComponent(email);
+          headers["X-Doxen-Avatar-Index"] = String(me.avatar_index);
+          const rows = await env.COMMENTS_DB.prepare("SELECT c.id, c.block, c.quote, c.body, c.author, c.created_at, a.position - 1 AS avatar_index, CASE WHEN r.block IS NULL THEN 0 ELSE 1 END AS resolved FROM comments c LEFT JOIN comment_avatars a ON a.email = lower(c.author) LEFT JOIN comment_resolutions r ON r.document = c.document AND r.block = c.block WHERE c.document = ? ORDER BY c.created_at, c.id").bind(document).all();
+          return Response.json(rows.results.map((row) => ({ ...row, mine: row.author?.toLowerCase() === email })), { headers });
         }
         if (request.method === "POST") {
           if (request.headers.get("origin") !== url.origin || !request.headers.get("content-type")?.startsWith("application/json"))
@@ -45,10 +53,36 @@ export function accessWorker(access, keys = createRemoteJWKSet(
               !data.document || data.document.length > 500 || !data.block || data.block.length > 10000 ||
               data.quote.length > 2000 || !data.body.trim() || data.body.length > 5000)
             return new Response("잘못된 댓글", { status: 400, headers });
-          const row = { id: crypto.randomUUID(), block: data.block, quote: data.quote, body: data.body.trim(), author: email, created_at: new Date().toISOString() };
+          await ensureAvatars();
+          const avatar = await env.COMMENTS_DB.prepare("SELECT position - 1 AS avatar_index FROM comment_avatars WHERE email = ?").bind(email).first();
+          const row = { avatar_index: avatar.avatar_index, id: crypto.randomUUID(), block: data.block, quote: data.quote, body: data.body.trim(), author: email, created_at: new Date().toISOString(), mine: true, resolved: 0 };
           await env.COMMENTS_DB.prepare("INSERT INTO comments (id, document, block, quote, body, author, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
             .bind(row.id, data.document, row.block, row.quote, row.body, row.author, row.created_at).run();
           return Response.json(row, { status: 201, headers });
+        }
+        if (request.method === "DELETE" || request.method === "PATCH" || request.method === "PUT") {
+          if (request.headers.get("origin") !== url.origin || !request.headers.get("content-type")?.startsWith("application/json"))
+            return new Response("잘못된 요청", { status: 403, headers });
+          let data;
+          try { data = await request.json(); } catch { return new Response("잘못된 요청", { status: 400, headers }); }
+          if (request.method === "PUT") {
+            if (typeof data?.id !== "string" || !data.id || data.id.length > 100 || typeof data.body !== "string" || !data.body.trim() || data.body.length > 5000)
+              return new Response("잘못된 댓글", { status: 400, headers });
+            const updated = await env.COMMENTS_DB.prepare("UPDATE comments SET body = ? WHERE id = ? AND author = ? RETURNING id").bind(data.body.trim(), data.id, email).first();
+            return new Response(null, { status: updated ? 204 : 404, headers });
+          }
+          if (request.method === "DELETE") {
+            if (typeof data?.id !== "string" || !data.id || data.id.length > 100) return new Response("잘못된 댓글", { status: 400, headers });
+            const deleted = await env.COMMENTS_DB.prepare("DELETE FROM comments WHERE id = ? AND author = ? RETURNING document, block").bind(data.id, email).first();
+            if (!deleted) return new Response(null, { status: 404, headers });
+            await env.COMMENTS_DB.prepare("DELETE FROM comment_resolutions WHERE document = ? AND block = ? AND NOT EXISTS (SELECT 1 FROM comments WHERE document = ? AND block = ?)").bind(deleted.document, deleted.block, deleted.document, deleted.block).run();
+            return new Response(null, { status: 204, headers });
+          }
+          if (typeof data?.document !== "string" || !data.document || data.document.length > 500 || typeof data.block !== "string" || !data.block || data.block.length > 10000 || typeof data.resolved !== "boolean")
+            return new Response("잘못된 요청", { status: 400, headers });
+          if (data.resolved) await env.COMMENTS_DB.prepare("INSERT INTO comment_resolutions (document, block) SELECT ?, ? WHERE EXISTS (SELECT 1 FROM comments WHERE document = ? AND block = ?) ON CONFLICT DO NOTHING").bind(data.document, data.block, data.document, data.block).run();
+          else await env.COMMENTS_DB.prepare("DELETE FROM comment_resolutions WHERE document = ? AND block = ?").bind(data.document, data.block).run();
+          return new Response(null, { status: 204, headers });
         }
         return new Response("허용되지 않는 요청", { status: 405, headers });
       }

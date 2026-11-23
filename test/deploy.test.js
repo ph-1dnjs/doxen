@@ -165,9 +165,13 @@ test("comments require Access authentication and use the authenticated author", 
     .setProtectedHeader({ alg: "RS256", kid: "comments" }).setIssuer(settings.access.teamDomain)
     .setAudience(settings.access.audiences).setIssuedAt().setExpirationTime("5m").sign(privateKey);
   let inserted;
-  const env = { COMMENTS_DB: { prepare: (sql) => ({ bind: (...values) => ({
-    run: async () => { inserted = values; }, all: async () => ({ results: [{ body: "hello" }] }),
-  }) }) } };
+  const env = { COMMENTS_DB: { prepare: (sql) => ({
+    run: async () => ({}),
+    bind: (...values) => ({
+      run: async () => { if (sql.startsWith("INSERT INTO comments")) inserted = values; },
+      first: async () => ({ avatar_index: 0 }), all: async () => ({ results: [{ body: "hello" }] }),
+    }),
+  }) } };
   const url = "https://team-docs.pages.dev/__doxen/comments";
   assert.equal((await worker.fetch(new Request(url), env)).status, 403);
   const headers = { "cf-access-jwt-assertion": token, "content-type": "application/json", origin: "https://team-docs.pages.dev" };
@@ -179,4 +183,63 @@ test("comments require Access authentication and use the authenticated author", 
   assert.equal(inserted[5], "member@example.com");
   assert.equal((await worker.fetch(new Request(`${url}?document=guide%2Fa`, { headers }), env)).status, 200);
   assert.equal((await worker.fetch(new Request(url, { method: "POST", headers, body: JSON.stringify({ ...data, body: " " }) }), env)).status, 400);
+  const statements = [];
+  const mutationEnv = { COMMENTS_DB: { prepare: (sql) => ({ bind: (...values) => ({
+    first: async () => { statements.push({ sql, values }); return (sql.startsWith("UPDATE") ? values[1] === "own" && values[2] === "member@example.com" : values[1] === "member@example.com" && values[0] === "own") ? { document: "guide/a", block: "paragraph" } : null; },
+    run: async () => { statements.push({ sql, values }); return { meta: { changes: 1 } }; },
+  }) }) } };
+  const mutate = (method, body, extraHeaders = {}) => worker.fetch(new Request(url, { method, headers: { ...headers, ...extraHeaders }, body: JSON.stringify(body) }), mutationEnv);
+  assert.equal((await mutate("PUT", { id: "other", body: "변경" })).status, 404);
+  assert.equal((await mutate("PUT", { id: "own", body: "  변경  " })).status, 204);
+  assert.deepEqual(statements.at(-1).values, ["변경", "own", "member@example.com"]);
+  assert.equal((await mutate("PUT", { id: "own", body: "  " })).status, 400);
+  assert.equal((await mutate("PUT", { id: "own", body: "x".repeat(5001) })).status, 400);
+  statements.length = 0;
+  assert.equal((await mutate("DELETE", { id: "other" })).status, 404);
+  assert.equal(statements[0].values[1], "member@example.com");
+  assert.equal((await mutate("DELETE", { id: "own" })).status, 204);
+  assert.match(statements.at(-1).sql, /NOT EXISTS/);
+  assert.equal((await mutate("PATCH", { document: "guide/a", block: "paragraph", resolved: true })).status, 204);
+  assert.match(statements.at(-1).sql, /INSERT INTO comment_resolutions/);
+  assert.equal((await mutate("PATCH", { document: "guide/a", block: "paragraph", resolved: false })).status, 204);
+  assert.equal((await mutate("PATCH", { document: "guide/a", block: "paragraph", resolved: "true" })).status, 400);
+  assert.equal((await mutate("DELETE", { id: "own" }, { origin: "https://evil.example" })).status, 403);
+});
+
+
+test("comment avatar positions follow access order and survive removals", async (t) => {
+  const sqlite = await import("node:sqlite").catch(() => null);
+  if (!sqlite) return t.skip("node:sqlite가 제공되지 않는 Node 버전입니다.");
+  const { DatabaseSync } = sqlite;
+  const db = new DatabaseSync(":memory:");
+  db.exec(await readFile(new URL("../src/comments.sql", import.meta.url), "utf8"));
+  const adapter = { prepare(sql) {
+    const statement = db.prepare(sql);
+    const wrap = (...values) => ({
+      run: async () => statement.run(...values),
+      first: async () => statement.get(...values) || null,
+      all: async () => ({ results: statement.all(...values) }),
+    });
+    return { ...wrap(), bind: (...values) => wrap(...values) };
+  } };
+  const { privateKey, publicKey } = await generateKeyPair("RS256");
+  const keys = createLocalJWKSet({ keys: [{ ...await exportJWK(publicKey), kid: "avatars", alg: "RS256" }] });
+  const token = await new SignJWT({ email: "a@example.com" }).setProtectedHeader({ alg: "RS256", kid: "avatars" }).setIssuer(settings.access.teamDomain).setAudience(settings.access.audiences).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+  const read = async (emails) => {
+    const worker = accessWorker({ ...settings.access, emails }, keys);
+    const response = await worker.fetch(new Request("https://team-docs.pages.dev/__doxen/comments?document=guide", { headers: { "cf-access-jwt-assertion": token } }), { COMMENTS_DB: adapter });
+    assert.equal(response.status, 200);
+    return response;
+  };
+  db.prepare("INSERT INTO comments VALUES (?, ?, ?, ?, ?, ?, ?)").run("1", "guide", "block", "", "기존 댓글", "old@example.com", "2026-01-01");
+  const first = await read(["a@example.com", "b@example.com", "c@example.com"]);
+  assert.equal(first.headers.get("X-Doxen-Avatar-Index"), "0");
+  assert.equal((await first.json())[0].avatar_index, 3);
+  await read(["a@example.com", "c@example.com", "d@example.com"]);
+  await read(["a@example.com", "d@example.com", "c@example.com"]);
+  assert.deepEqual(db.prepare("SELECT email, position - 1 AS idx FROM comment_avatars ORDER BY position").all().map((row) => ({ ...row })), [
+    { email: "a@example.com", idx: 0 }, { email: "b@example.com", idx: 1 }, { email: "c@example.com", idx: 2 },
+    { email: "old@example.com", idx: 3 }, { email: "d@example.com", idx: 4 },
+  ]);
+  db.close();
 });

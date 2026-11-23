@@ -1,6 +1,7 @@
 const api = "/__doxen/comments";
 const avatarColors = ['#2F6B4F', '#3E5BA9', '#9A4D16', '#6D4AA8', '#0E7490', '#9F1239'];
-function avatarColor(author) {
+function avatarColor(author, index) {
+  if (Number.isInteger(index) && index >= 0) return avatarColors[index % avatarColors.length];
   let hash = 0;
   for (const char of author) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
   return avatarColors[hash % avatarColors.length];
@@ -13,6 +14,10 @@ export async function attachComments(article, documentId, commentId) {
   catch { return; }
   if (!response.ok || !article.isConnected || article.dataset.commentDocument !== documentId) return;
   let comments = await response.json();
+  let viewer = '';
+  try { viewer = decodeURIComponent(response.headers.get('X-Doxen-Viewer') || ''); } catch { /* 이전 서버 응답 */ }
+  const viewerIndexValue = response.headers.get('X-Doxen-Avatar-Index');
+  const viewerIndex = viewerIndexValue === null ? undefined : Number(viewerIndexValue);
   if (article.dataset.commentDocument !== documentId) return;
   document.body.classList.add('has-comments');
   const blocks = [...article.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, pre, blockquote, td, th')]
@@ -24,6 +29,9 @@ export async function attachComments(article, documentId, commentId) {
   const matched = new Set();
   const anchors = new Map();
   const anchorBlocks = new Map();
+  const redraw = new Map();
+  let activeTab = false;
+  const request = (method, data) => fetch(api, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
   const popover = document.createElement('button');
   popover.type = 'button';
   popover.className = 'comment-selection-trigger';
@@ -49,10 +57,10 @@ export async function attachComments(article, documentId, commentId) {
     document.body.classList.remove('comment-card-open');
   };
   document.addEventListener('pointerdown', (event) => {
-    if (!event.target.closest('.comment-panel, .comment-trigger, .comment-selection-trigger')) dismissComment();
+    if (!event.target.closest('.comment-panel, .comment-trigger, .comment-selection-trigger, .comment-delete-dialog')) dismissComment();
   }, { signal: dismissController.signal });
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && article.querySelector('.comment-trigger.is-open')) dismissComment();
+    if (event.key === 'Escape' && !document.querySelector('.comment-delete-dialog[open]') && article.querySelector('.comment-trigger.is-open')) dismissComment();
   }, { signal: dismissController.signal });
   function showDraftHighlight(block, range) {
     if (!range) return;
@@ -135,7 +143,12 @@ export async function attachComments(article, documentId, commentId) {
       const oldList = panel.querySelector('.comment-list');
       if (oldList) article.commentLaneObserver?.unobserve(oldList);
       const items = comments.filter((item) => item.block === key);
-      for (const quote of new Set(items.map((item) => item.quote).filter(Boolean))) {
+      const resolved = Boolean(items[0]?.resolved);
+      button.classList.toggle('is-resolved', resolved);
+      button.hidden = resolved;
+      for (const mark of block.querySelectorAll('.comment-highlight')) { const parent = mark.parentNode; mark.replaceWith(...mark.childNodes); parent.normalize(); }
+
+      for (const quote of new Set((resolved ? [] : items).map((item) => item.quote).filter(Boolean))) {
         const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
         const matches = [];
         while (walker.nextNode()) {
@@ -164,7 +177,7 @@ export async function attachComments(article, documentId, commentId) {
           avatar.className = 'comment-avatar';
           avatar.textContent = author[0].toUpperCase();
           avatar.title = author;
-          avatar.style.backgroundColor = avatarColor(author);
+          avatar.style.backgroundColor = avatarColor(author, items.find((item) => item.author === author)?.avatar_index);
           button.append(avatar);
         }
         const count = document.createElement('span');
@@ -180,6 +193,30 @@ export async function attachComments(article, documentId, commentId) {
         button.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6l-4.5 3v-3H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/><path d="M12 8v6m-3-3h6"/></svg>';
       }
       panel.replaceChildren();
+      const head = document.createElement('div');
+      head.className = 'comment-panel-head';
+      const title = document.createElement('strong');
+      title.textContent = '댓글';
+      head.append(title);
+      if (items.length) {
+        const resolve = document.createElement('button');
+        resolve.type = 'button'; resolve.className = 'comment-resolve';
+        resolve.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'; resolve.setAttribute('aria-label', resolved ? '미해결로 변경' : '해결 완료로 표시');
+        resolve.title = resolve.getAttribute('aria-label'); resolve.setAttribute('aria-pressed', String(resolved));
+        resolve.onclick = async () => {
+          resolve.disabled = true;
+          try {
+            const result = await request('PATCH', { document: documentId, block: key, resolved: !resolved });
+            if (!result.ok) throw new Error();
+            for (const item of items) item.resolved = !resolved;
+            draw(); renderAll();
+            if (!resolved) dismissComment();
+          } catch { resolve.disabled = false; alert('상태를 변경하지 못했습니다. 다시 시도해 주세요.'); }
+        };
+        head.append(resolve);
+      }
+      const close = document.createElement('button'); close.type = 'button'; close.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'; close.setAttribute('aria-label', '댓글 닫기'); close.onclick = dismissComment; head.append(close);
+      panel.append(head);
       const list = document.createElement('div');
       list.className = 'comment-list';
       const listFrame = document.createElement('div');
@@ -198,7 +235,7 @@ export async function attachComments(article, documentId, commentId) {
         const avatar = document.createElement('span');
         avatar.className = 'comment-avatar';
         avatar.textContent = item.author[0].toUpperCase();
-        avatar.style.backgroundColor = avatarColor(item.author);
+        avatar.style.backgroundColor = avatarColor(item.author, item.avatar_index);
         const name = document.createElement('strong');
         name.textContent = item.author;
         const time = document.createElement('time');
@@ -208,6 +245,58 @@ export async function attachComments(article, documentId, commentId) {
         time.dateTime = item.created_at;
         time.title = created.toLocaleString('ko-KR');
         summary.append(avatar, name, time);
+        if (item.mine) {
+          const edit = document.createElement('button');
+          edit.type = 'button'; edit.className = 'comment-edit'; edit.setAttribute('aria-label', '내 댓글 수정');
+          edit.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
+          edit.onclick = () => {
+            if (!body.isConnected) return;
+            const form = document.createElement('form'); form.className = 'comment-edit-form';
+            const input = document.createElement('textarea'); input.value = item.body; input.maxLength = 5000; input.rows = 3; input.setAttribute('aria-label', '댓글 수정');
+            const actions = document.createElement('div'); actions.className = 'comment-edit-actions';
+            const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '취소'; cancel.onclick = () => { form.replaceWith(body); edit.focus(); };
+            const save = document.createElement('button'); save.type = 'submit'; save.textContent = '저장';
+            const error = document.createElement('p'); error.className = 'comment-edit-error'; error.setAttribute('role', 'alert');
+            const update = () => { save.disabled = !input.value.trim() || input.value.trim() === item.body; };
+            input.oninput = () => { update(); error.textContent = ''; }; update();
+            form.onsubmit = async (event) => {
+              event.preventDefault(); if (save.disabled) return;
+              save.disabled = true; cancel.disabled = true; input.disabled = true;
+              try {
+                const result = await request('PUT', { id: item.id, body: input.value });
+                if (!result.ok) throw new Error();
+                item.body = input.value.trim(); draw(); renderAll();
+                panel.querySelector(`[data-comment-id="${CSS.escape(item.id)}"] .comment-edit`)?.focus();
+              } catch { error.textContent = '댓글을 수정하지 못했습니다. 다시 시도해 주세요.'; input.disabled = false; cancel.disabled = false; update(); }
+            };
+            actions.append(cancel, save); form.append(input, actions, error); body.replaceWith(form); input.focus();
+          };
+          const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'comment-delete'; remove.setAttribute('aria-label', '내 댓글 삭제');
+          remove.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+          remove.onclick = () => {
+            const dialog = document.createElement('dialog'); dialog.className = 'comment-delete-dialog';
+            dialog.setAttribute('aria-labelledby', 'comment-delete-title'); dialog.setAttribute('aria-describedby', 'comment-delete-description');
+            dialog.innerHTML = '<h2 id="comment-delete-title">댓글을 삭제할까요?</h2><p id="comment-delete-description">삭제한 댓글은 되돌릴 수 없어요.</p><div class="comment-delete-actions"><button type="button" class="comment-delete-cancel">취소</button><button type="button" class="comment-delete-confirm">삭제</button></div><p class="comment-delete-error" role="alert"></p>';
+            document.body.append(dialog);
+            const cancel = dialog.querySelector('.comment-delete-cancel');
+            const confirm = dialog.querySelector('.comment-delete-confirm');
+            const cleanup = () => { dialog.remove(); dismissController.signal.removeEventListener('abort', cleanup); };
+            dismissController.signal.addEventListener('abort', cleanup, { once: true });
+            dialog.addEventListener('close', cleanup, { once: true });
+            cancel.onclick = () => dialog.close();
+            confirm.onclick = async () => {
+              confirm.disabled = true; cancel.disabled = true;
+              try {
+                const result = await request('DELETE', { id: item.id });
+                if (!result.ok) throw new Error();
+                comments = comments.filter((comment) => comment.id !== item.id);
+                dialog.close(); draw(); renderAll();
+              } catch { dialog.querySelector('.comment-delete-error').textContent = '댓글을 삭제하지 못했습니다. 다시 시도해 주세요.'; confirm.disabled = false; cancel.disabled = false; }
+            };
+            dialog.showModal(); cancel.focus();
+          };
+          summary.append(edit, remove);
+        }
         entry.append(summary);
         if (item.quote) {
           const quote = document.createElement('p');
@@ -248,7 +337,8 @@ export async function attachComments(article, documentId, commentId) {
       submit.disabled = true;
       const avatar = document.createElement('span');
       avatar.className = 'comment-avatar';
-      avatar.textContent = '나';
+      avatar.textContent = viewer ? viewer[0].toUpperCase() : '나';
+      if (viewer) { avatar.title = viewer; avatar.style.backgroundColor = avatarColor(viewer, viewerIndex); }
       const row = document.createElement('div');
       row.className = 'comment-input-row';
       const field = document.createElement('div');
@@ -287,7 +377,9 @@ export async function attachComments(article, documentId, commentId) {
           const result = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ document: documentId, block: key, quote: draftQuote, body: input.value }) });
           if (!result.ok) throw new Error();
           const newItem = await result.json();
+          newItem.resolved = resolved;
           comments.push(newItem);
+          renderAll();
           clearDraftHighlight();
           draftQuote = '';
           draw(newItem);
@@ -322,12 +414,76 @@ export async function attachComments(article, documentId, commentId) {
       else openPanel(quote, quote && selection.rangeCount ? selection.getRangeAt(0).cloneRange() : undefined);
       popover.hidden = true;
     });
+    redraw.set(key, { draw, open: () => openPanel('', undefined, false), wrapper });
     draw();
     if (commentId && comments.some((item) => item.id === commentId && item.block === key)) {
       openPanel('', undefined, false);
       const entry = [...panel.querySelectorAll('[data-comment-id]')].find((item) => item.dataset.commentId === commentId);
       requestAnimationFrame(() => entry?.scrollIntoView({ block: 'center' }));
     }
+  }
+  const allDialog = document.createElement('dialog');
+  allDialog.className = 'all-comments-dialog';
+  allDialog.setAttribute('aria-label', '댓글 모두 보기');
+  document.body.append(allDialog);
+  dismissController.signal.addEventListener('abort', () => allDialog.remove());
+  function renderAll() {
+    if (!allDialog.open) return;
+    allDialog.replaceChildren();
+    const head = document.createElement('div'); head.className = 'all-comments-head';
+    const heading = document.createElement('strong'); heading.textContent = '댓글 모두 보기';
+    const close = document.createElement('button'); close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', '닫기'); close.onclick = () => allDialog.close(); head.append(heading, close); allDialog.append(head);
+    const tabs = document.createElement('div'); tabs.className = 'all-comments-tabs';
+    for (const [value, label] of [[false, '미해결'], [true, '해결됨']]) {
+      const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = `${label} ${new Set(comments.filter((item) => Boolean(item.resolved) === value).map((item) => item.block)).size}`;
+      tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(activeTab === value)); tab.onclick = () => { activeTab = value; renderAll(); }; tabs.append(tab);
+    }
+    tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', '댓글 상태');
+    allDialog.append(tabs);
+    const groups = new Map();
+    for (const item of comments.filter((item) => Boolean(item.resolved) === activeTab)) groups.set(item.block, [...(groups.get(item.block) || []), item]);
+    if (!groups.size) { const empty = document.createElement('p'); empty.className = 'all-comments-empty'; empty.textContent = activeTab ? '해결된 댓글이 없습니다.' : '미해결 댓글이 없습니다.'; allDialog.append(empty); }
+    const list = document.createElement('div'); list.className = 'all-comments-list';
+    if (groups.size) {
+      const sectionTitle = document.createElement('p'); sectionTitle.className = 'all-comments-section-title';
+      sectionTitle.textContent = `문서의 댓글 ${groups.size}`; list.append(sectionTitle);
+    }
+    for (const [key, items] of groups) {
+      const target = redraw.get(key);
+      const container = document.createElement('div'); container.className = 'all-comments-item';
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'all-comments-row';
+      const context = document.createElement('span'); context.className = 'all-comments-context';
+      const block = target && anchorBlocks.get(target.wrapper);
+      const kind = !target ? '위치 없음' : ['TD', 'TH'].includes(block.tagName) ? '표 셀' : block.tagName === 'PRE' ? '코드 블록' : '문단';
+      let blockText = ''; try { blockText = JSON.parse(key)[0]; } catch { /* 이전 형식의 위치 */ }
+      context.textContent = `${kind} · ${blockText}`;
+      const latest = items[items.length - 1];
+      const identity = document.createElement('span'); identity.className = 'all-comments-identity';
+      const avatar = document.createElement('span'); avatar.className = 'comment-avatar'; avatar.style.backgroundColor = avatarColor(latest.author, latest.avatar_index); avatar.textContent = latest.author[0].toUpperCase();
+      const label = document.createElement('strong'); label.textContent = latest.author;
+      const time = document.createElement('time'); const date = new Date(latest.created_at); const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+      time.textContent = minutes < 1 ? '지금' : minutes < 60 ? `${minutes}분` : minutes < 1440 ? `${Math.floor(minutes / 60)}시간` : date.toLocaleDateString('ko-KR');
+      identity.append(avatar, label, time);
+      const body = document.createElement('span'); body.className = 'all-comments-preview'; body.textContent = latest.body;
+      const count = document.createElement('small'); count.textContent = `댓글 ${items.length}개`;
+      row.append(context, identity, body, count);
+      row.onclick = () => { allDialog.close(); if (target) { target.open(); target.wrapper.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else { const orphan = article.querySelector('.comment-orphans'); if (orphan) { orphan.open = true; orphan.scrollIntoView(); } } };
+      container.append(row);
+      if (activeTab) {
+        const restore = document.createElement('button'); restore.type = 'button'; restore.className = 'all-comments-restore';
+        restore.setAttribute('aria-label', '미해결로 변경'); restore.title = '미해결로 변경'; restore.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+        restore.onclick = async () => { restore.disabled = true; try { const result = await request('PATCH', { document: documentId, block: key, resolved: false }); if (!result.ok) throw new Error(); for (const item of items) item.resolved = false; target?.draw(); renderAll(); } catch { restore.disabled = false; alert('상태를 변경하지 못했습니다. 다시 시도해 주세요.'); } };
+        container.append(restore);
+      }
+      list.append(container);
+    }
+    allDialog.append(list);
+  }
+  const showAll = document.querySelector('#show-all-comments');
+  if (showAll) {
+    showAll.disabled = false;
+    showAll.removeAttribute('title');
+    showAll.onclick = () => { document.querySelector('.document-actions').open = false; activeTab = false; allDialog.show(); renderAll(); };
   }
   const alignButtons = () => {
     const right = article.getBoundingClientRect().right;

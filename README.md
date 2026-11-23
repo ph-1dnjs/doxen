@@ -372,6 +372,10 @@ CI(GitHub Actions 등)에서는 대화형 첫 설정을 할 수 없습니다. �
 
 `CLOUDFLARE_ACCOUNT_ID`도 지정한다면 저장된 계정 ID와 **같아야** 합니다.
 
+GitHub Actions에서 사용할 수 있는 빌드·배포 예제는 [deploy-docs.yml](src/templates/deploy-docs.yml)입니다. 설치된 패키지의 `node_modules/@unana_dev/doxen/src/templates/deploy-docs.yml`을 문서 저장소의 `.github/workflows/deploy-docs.yml`로 복사하세요. 이 예제는 npm 잠금 파일과 `docs:deploy` 스크립트가 필요하며, `main`에 푸시하거나 Actions 탭에서 **Deploy documentation to Cloudflare → Run workflow**를 선택하면 실행됩니다. 기본 브랜치가 다르면 워크플로의 브랜치 조건을 변경하세요.
+
+예제의 `fetch-depth: 0`은 문서별 최종 수정자와 수정일을 확인할 수 있도록 전체 Git 이력을 가져옵니다. 프로젝트에서 OpenAPI 동기화 등 별도 빌드 준비가 필요하다면 배포 단계 전에 추가하세요.
+
 #### 중간에 실패했다면?
 
 **같은 명령을 다시 실행하세요.** 이미 만든 자원의 식별자를 기억하고 있어서, 멈춘 단계부터 이어서 진행합니다.
@@ -442,7 +446,7 @@ npx doxen ai --file guide/writing.md \
 npx wrangler d1 execute 데이터베이스이름 --remote --file=node_modules/@unana_dev/doxen/src/comments.sql
 ```
 
-직접 `docs.config.ts`에 배포 설정을 작성했다면 `deploy.comments: { databaseName: "데이터베이스이름", databaseId: "D1 데이터베이스 UUID" }`를 추가합니다. 자동 배포 설정을 사용한다면 `.doxen-deploy.json`의 최상위에 동일한 `comments` 객체를 추가한 뒤 다시 배포합니다. 배포 시 `COMMENTS_DB` D1 바인딩이 설정됩니다. 데이터베이스 생성과 SQL 적용은 별도로 필요하며, 로컬 미리보기와 정적 빌드에는 댓글 저장 기능이 없습니다.
+직접 `docs.config.ts`에 배포 설정을 작성했다면 `deploy.comments: { databaseName: "데이터베이스이름", databaseId: "D1 데이터베이스 UUID" }`를 추가합니다. 자동 배포 설정을 사용한다면 `.doxen-deploy.json`의 최상위에 동일한 `comments` 객체를 추가한 뒤 다시 배포합니다. 배포 시 `COMMENTS_DB` D1 바인딩이 설정됩니다. 기존 댓글 데이터베이스도 업그레이드 시 같은 SQL을 다시 적용해 해결 상태와 아바타 색상 테이블을 추가해야 합니다. 아바타 색상은 권한 목록의 순서로 배정되며 권한이 삭제되어도 기존 배정은 유지됩니다. 데이터베이스 생성과 SQL 적용은 별도로 필요하며, 로컬 미리보기와 정적 빌드에는 댓글 저장 기능이 없습니다.
 
 본문의 문구를 선택한 후 해당 문단 오른쪽의 버튼을 누르거나, 문구 선택 없이 버튼을 눌러 댓글을 작성합니다. 작성자는 Access의 이메일로 표시됩니다. 문단 내용이나 같은 내용의 문단 순서가 바뀌면 기존 댓글은 본문 아래의 위치를 찾을 수 없는 댓글 목록에서 확인할 수 있습니다.
 
@@ -511,9 +515,11 @@ export default {
 > });
 > ```
 
-설정 파일은 `.ts`, `.mjs`, `.js` 중 아무거나 쓸 수 있습니다.
+설정 파일은 `.ts`, `.mjs`, `.js` 중 아무거나 쓸 수 있습니다. 문서 더보기에서 GitHub 저장소로 이동하려면 `repository: "https://github.com/소유자/저장소"`를 설정하세요. 설정하지 않으면 해당 항목은 비활성화됩니다.
 
 ### tabs: 상단 탭 하나 = 문서 폴더 하나
+
+설정 파일과 같은 폴더에 `README.md`가 있으면 사이트 첫 화면과 로고를 눌렀을 때 프로젝트 소개로 표시됩니다. 각 탭이나 하위 폴더에도 `README.md`를 두면 해당 탭이나 폴더를 열 때 먼저 표시됩니다. README가 없는 폴더는 기존처럼 하위 문서 목록을 보여줍니다.
 
 | 항목    | 의미                     | 규칙                                                   |
 | ------- | ------------------------ | ------------------------------------------------------ |
@@ -655,6 +661,12 @@ npm pack
 - 브라우저 테스트 전에 `npx playwright install chromium`을 먼저 실행하세요. 이미 설치된 Chrome을 쓰려면 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`에 실행 파일 경로를 지정하면 됩니다.
 - 로컬에서 만든 패키지를 다른 프로젝트에 설치해 보려면, `npm pack`으로 만든 `.tgz` 경로를 패키지 이름 대신 넣어 설치하세요.
 - npm 배포 파일은 `bin/`, `src/`, `client/`, README, LICENSE로 제한됩니다. 예제·테스트는 포함되지 않습니다.
+
+### npm 자동 배포
+
+`main`에 푸시되면 패키지 검사와 브라우저 테스트를 통과한 뒤 npm의 최신 버전에서 패치 버전을 올려 배포합니다. 버전 변경은 Actions 실행 환경에만 적용되며 저장소의 `package.json`은 수정하지 않습니다. 배포 작업을 다시 실행하면 새 패치 버전이 추가로 배포됩니다.
+
+최초 설정으로 npm의 `@unana_dev/doxen` 패키지 설정에서 Trusted Publisher에 GitHub Actions를 추가하세요. 사용자/조직은 `ph-1dnjs`, 저장소는 `doxen`, 워크플로 파일명은 `publish.yml`로 지정하고 `npm publish`를 허용합니다. 자세한 내용은 [npm Trusted Publishing 안내](https://docs.npmjs.com/trusted-publishers/)를 참고하세요.
 
 **구조 한 줄 요약:** `bin/docs.js` → 설정 로더 → Markdown·섹션·첨부 처리 → 정적 빌드 또는 로컬 서버. 화면과 브라우저 검색 코드는 `client/`에 있습니다.
 

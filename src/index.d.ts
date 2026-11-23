@@ -1,6 +1,7 @@
 export interface DocsConfig {
   title: string;
   description?: string;
+  repository?: string;
   color?: string;
   icon?: string | { background?: string; color?: string; border?: string };
   api?: { document: string; spec?: string; metadata?: string };
