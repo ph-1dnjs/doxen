@@ -751,6 +751,7 @@ test('header and navigation stay visible while scrolling and preserve heading an
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 700 });
     await page.goto('./#/guide%2F01-introduction');
+    await expect(page.locator('#문서를-연결하는-방법')).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 650));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
     const bounds = await page.locator('.site-header').boundingBox();
