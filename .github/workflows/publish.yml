@@ -1,0 +1,35 @@
+name: Publish to npm
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: npm-publish
+  queue: max
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm run test:package
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Set next patch version
+        run: |
+          npm version "$(npm view @unana_dev/doxen version)" --no-git-tag-version --allow-same-version
+          npm version patch --no-git-tag-version
+      - run: npm publish

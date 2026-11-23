@@ -662,6 +662,12 @@ npm pack
 - 로컬에서 만든 패키지를 다른 프로젝트에 설치해 보려면, `npm pack`으로 만든 `.tgz` 경로를 패키지 이름 대신 넣어 설치하세요.
 - npm 배포 파일은 `bin/`, `src/`, `client/`, README, LICENSE로 제한됩니다. 예제·테스트는 포함되지 않습니다.
 
+### npm 자동 배포
+
+`main`에 푸시되면 패키지 검사와 브라우저 테스트를 통과한 뒤 npm의 최신 버전에서 패치 버전을 올려 배포합니다. 버전 변경은 Actions 실행 환경에만 적용되며 저장소의 `package.json`은 수정하지 않습니다. 배포 작업을 다시 실행하면 새 패치 버전이 추가로 배포됩니다.
+
+최초 설정으로 npm의 `@unana_dev/doxen` 패키지 설정에서 Trusted Publisher에 GitHub Actions를 추가하세요. 사용자/조직은 `ph-1dnjs`, 저장소는 `doxen`, 워크플로 파일명은 `publish.yml`로 지정하고 `npm publish`를 허용합니다. 자세한 내용은 [npm Trusted Publishing 안내](https://docs.npmjs.com/trusted-publishers/)를 참고하세요.
+
 **구조 한 줄 요약:** `bin/docs.js` → 설정 로더 → Markdown·섹션·첨부 처리 → 정적 빌드 또는 로컬 서버. 화면과 브라우저 검색 코드는 `client/`에 있습니다.
 
 궁금한 점이나 버그는 저장소 이슈로 남겨 주세요. 즐거운 문서 작성 되세요! 📚
