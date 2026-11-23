@@ -51,8 +51,9 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
   await page.route("**/site.json", async (route) => {
     const response = await route.fetch();
     const data = await response.json();
-    data.documents[0].html = new MarkdownIt().render(source);
-    data.documents[0].title = "[개요] 회원가입 기능 흐름";
+    const document = data.documents.find((item) => item.id === "guide/01-introduction");
+    document.html = new MarkdownIt().render(source);
+    document.title = "[개요] 회원가입 기능 흐름";
     await route.fulfill({ json: data });
   });
   const external = [];
@@ -60,7 +61,7 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
     if (!request.url().startsWith("http://127.0.0.1:")) external.push(request.url());
   });
   await page.setViewportSize({ width: 2048, height: 1200 });
-  await page.goto("./");
+  await page.goto("./#/guide%2F01-introduction");
   await expect(page.locator(".diagram > svg")).toHaveCount(3);
   await expect(page.locator(".diagram").first()).toContainText("사업자 정보 확인");
   const expand = page.getByRole("button", { name: "다이어그램 크게 보기" }).first();
@@ -222,7 +223,7 @@ test("tabs, relative links, Korean heading deep links and refresh work under a h
 }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("./");
+  await page.goto("./#/guide%2F01-introduction");
   await expect(page.locator("article h1")).toHaveText("팀의 지식을 한곳에");
   await expect(page.locator("#breadcrumb a")).toHaveText(["시작하기", "01-introduction"]);
   await page
@@ -286,7 +287,7 @@ test("global Korean search locates a section and highlights matching content", a
 });
 
 test("table searches are automatic and keep filters independent", async ({ page }) => {
-  await page.goto("./");
+  await page.goto("./#/guide%2F01-introduction");
   await expect(page.locator(".document-find")).toHaveCount(0);
   await expect(page.locator("[data-table-search]")).toHaveCount(2);
   const tables = page.locator("article table");
@@ -367,7 +368,7 @@ test("section tables filter by any cell and restore rows on clear", async ({ pag
 
 
 test("configured color reaches navigation, focus and search highlights", async ({ page }) => {
-  await page.goto("./");
+  await page.goto("./#/guide%2F01-introduction");
   await expect(page.locator("#tabs a.active")).toHaveCSS("color", "rgb(234, 179, 8)");
   await expect(page.locator("#documents a.selected")).toHaveCSS("color", "rgb(234, 179, 8)");
   await expect(page.locator("#breadcrumb a").first()).toHaveCSS("color", "rgb(234, 179, 8)");
@@ -720,7 +721,7 @@ test('document actions show icons, share the page and close outside', async ({ p
     const data = await response.json(); data.repository = 'https://github.com/example/docs';
     await route.fulfill({ json: data });
   });
-  await page.goto('./');
+  await page.goto('./#/guide%2F01-introduction');
   const actions = page.locator('.document-actions');
   const rightOffset = await actions.evaluate((node) => node.closest('.document-title').getBoundingClientRect().right - node.getBoundingClientRect().right);
   expect(Math.abs(rightOffset)).toBeLessThan(1);
