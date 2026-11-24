@@ -43,7 +43,7 @@ test("Workers AI endpoint requires Access and handles free quota exhaustion", as
     .setIssuer(settings.access.teamDomain).setAudience(settings.access.audiences).setIssuedAt().setExpirationTime("5m").sign(privateKey);
   const site = { documents: [{ id: "guide/start", title: "시작", sections: [{ title: "설치", text: "npm install", anchor: "install" }] }] };
   let calls = 0;
-  const env = { ASSETS: { fetch: async () => Response.json(site) }, AI: { run: async () => { calls++; return { response: "설치하세요 [1]" }; } } };
+  const env = { ASSETS: { fetch: async () => Response.json(site) }, AI: { run: async () => { calls++; return { response: calls % 2 ? "npm install 명령으로 설치합니다 [1]" : JSON.stringify({ supported: true, evidence: "npm install" }) }; } } };
   const headers = { "content-type": "application/json", origin: "https://team-docs.pages.dev", "cf-access-jwt-assertion": token };
   const url = "https://team-docs.pages.dev/__doxen/assistant";
   const body = JSON.stringify({ question: "설치 방법", sources: [{ index: 0, text: "npm install" }] });
@@ -51,8 +51,8 @@ test("Workers AI endpoint requires Access and handles free quota exhaustion", as
   assert.equal((await worker.fetch(new Request(url, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body }), env)).status, 403);
   assert.equal(calls, 0);
   const response = await worker.fetch(new Request(url, { method: "POST", headers, body }), env);
-  assert.deepEqual(await response.json(), { answer: "설치하세요 [1]" });
-  assert.equal(calls, 1);
+  assert.deepEqual(await response.json(), { answer: "npm install 명령으로 설치합니다 [1]", evidence: [{ number: 1, evidence: ["npm install"] }] });
+  assert.equal(calls, 2);
   const stale = JSON.stringify({ question: "설치", sources: [{ index: 0, text: "old content" }] });
   assert.equal((await worker.fetch(new Request(url, { method: "POST", headers, body: stale }), env)).status, 409);
   env.AI.run = async () => { throw Object.assign(new Error("quota"), { code: 3036 }); };

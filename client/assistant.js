@@ -1,6 +1,6 @@
 export function initAssistant(site) {
   if (site.assistant?.provider === "workers-ai-free")
-    document.querySelector("#assistant-privacy").textContent = "검색한 문서 일부와 질문을 Cloudflare Workers AI로 전송합니다. 검색 모델은 이 기기에 다운로드됩니다.";
+    document.querySelector("#assistant-privacy").textContent = "검색한 문서 일부와 질문을 Cloudflare Workers AI로 전송합니다. 검색 모델과 문서 임베딩은 이 브라우저에 저장됩니다.";
   const panel = document.querySelector("#assistant-panel");
   const toggle = document.querySelector("#assistant-toggle");
   const messages = document.querySelector("#assistant-messages");
@@ -38,11 +38,11 @@ export function initAssistant(site) {
     element.textContent = text;
     if (Array.isArray(sources) && sources.length) {
       const list = document.createElement("div"); list.className = "assistant-sources";
-      sources.slice(0, 5).forEach((source, index) => {
+      sources.forEach((source, index) => {
         if (!source || typeof source.href !== "string" || !source.href.startsWith("#/") || typeof source.text !== "string") return;
         const a = document.createElement("a"); a.href = source.href;
-        a.textContent = `[${index + 1}] ${String(source.title || "")} · ${String(source.heading || "")}`;
-        const excerpt = document.createElement("small"); excerpt.textContent = source.text.slice(0, 180);
+        a.textContent = `[${source.number || index + 1}] ${String(source.title || "")} > ${String(source.heading || "")}${source.documentType ? ` · ${source.documentType}` : ""}${source.modified ? ` · 수정 ${source.modified.slice(0, 10)}` : ""}`;
+        const excerpt = document.createElement("small"); excerpt.textContent = Array.isArray(source.evidence) ? source.evidence.join(" … ") : source.text.slice(0, 180);
         list.append(a, excerpt);
       });
       element.append(list);
@@ -55,7 +55,7 @@ export function initAssistant(site) {
   const addMessage = (text, kind, sources = []) => {
     message(text, kind, sources);
     history.push({ text, kind, ...(sources.length ? { sources: sources.map((source) => ({
-      title: source.title, heading: source.heading, href: source.href, text: source.text.slice(0, 180),
+      title: source.title, heading: source.heading, href: source.href, number: source.number, evidence: source.evidence, documentType: source.documentType, modified: source.modified, text: source.text.slice(0, 180),
     })) } : {}) });
     history = history.slice(-40);
     saveHistory();
@@ -69,7 +69,7 @@ export function initAssistant(site) {
     if (!worker) worker = new Worker(new URL("./rag-worker.js", import.meta.url), { type: "module" });
     worker.onmessage = ({ data }) => {
       if (data.type === "status") { status.textContent = data.message; return; }
-      status.textContent = data.semanticError ? "의미 검색 모델을 사용할 수 없어 키워드 검색을 사용했습니다." : "";
+      status.textContent = [data.semanticError ? "의미 검색 모델을 사용할 수 없어 키워드 검색을 사용했습니다." : "", data.timings ? `검색 ${(data.timings.searchMs / 1000).toFixed(1)}초 · 답변 및 검증 ${(data.timings.generationMs / 1000).toFixed(1)}초` : ""].filter(Boolean).join(" ");
       input.disabled = false; submit.disabled = false;
       if (data.type === "error") addMessage(data.message, "bot");
       if (data.type === "result") {
