@@ -13,6 +13,16 @@ test("document assistant loads and runs the real embedding model", async ({ page
 });
 
 test("document assistant falls back to local search when models cannot load", async ({ page }) => {
+  await page.addInitScript(() => {
+    const OriginalWorker = window.Worker;
+    window.__assistantRequests = [];
+    window.Worker = class extends OriginalWorker {
+      postMessage(data, ...args) {
+        if (data?.type === "init" || data?.type === "ask") window.__assistantRequests.push({ type: data.type, hasSite: Boolean(data.site) });
+        return super.postMessage(data, ...args);
+      }
+    };
+  });
   await page.route("https://huggingface.co/**", (route) => route.abort());
   await page.goto("./");
   await page.getByRole("button", { name: "문서 도우미 열기" }).click();
@@ -21,10 +31,16 @@ test("document assistant falls back to local search when models cannot load", as
   await expect(page.locator("#assistant-status")).toContainText("키워드 검색", { timeout: 30000 });
   await expect(page.locator(".assistant-sources a")).toHaveCount(0);
   const answer = await page.locator(".assistant-message.bot").textContent();
+  await page.getByRole("textbox", { name: "문서에 질문하기" }).fill("Doxen 안내");
+  await page.getByRole("button", { name: "보내기" }).click();
+  await expect(page.locator(".assistant-message.bot")).toHaveCount(2);
+  expect(await page.evaluate(() => window.__assistantRequests)).toEqual([
+    { type: "init", hasSite: true }, { type: "ask", hasSite: false }, { type: "ask", hasSite: false },
+  ]);
   await page.reload();
   await page.getByRole("button", { name: "문서 도우미 열기" }).click();
-  await expect(page.locator(".assistant-message.user")).toHaveText("Doxen");
-  await expect(page.locator(".assistant-message.bot")).toHaveText(answer);
+  await expect(page.locator(".assistant-message.user").first()).toHaveText("Doxen");
+  await expect(page.locator(".assistant-message.bot").first()).toHaveText(answer);
   await expect(page.locator(".assistant-sources a")).toHaveCount(0);
   await page.getByRole("button", { name: "새 대화" }).click();
   await expect(page.locator(".assistant-message")).toHaveCount(0);

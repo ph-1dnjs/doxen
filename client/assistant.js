@@ -19,11 +19,18 @@ export function initAssistant(site) {
     catch { status.textContent = "브라우저 저장 공간을 사용할 수 없어 새로고침 후 대화가 사라질 수 있습니다."; }
   };
   let worker;
+  const prepareWorker = () => {
+    if (worker) return;
+    worker = new Worker(new URL("./rag-worker.js", import.meta.url), { type: "module" });
+    worker.onmessage = handleWorkerMessage;
+    worker.onerror = () => { worker?.terminate(); worker = undefined; input.disabled = false; submit.disabled = false; status.textContent = ""; addMessage("모델을 실행하지 못했습니다. 브라우저를 확인해 주세요.", "bot"); };
+    worker.postMessage({ type: "init", site });
+  };
   const open = (value) => {
     panel.hidden = !value;
     toggle.setAttribute("aria-expanded", String(value));
     toggle.setAttribute("aria-label", value ? "문서 도우미 닫기" : "문서 도우미 열기");
-    if (value) input.focus(); else toggle.focus();
+    if (value) { prepareWorker(); input.focus(); } else toggle.focus();
   };
   toggle.onclick = () => open(panel.hidden);
   document.querySelector("#assistant-close").onclick = () => open(false);
@@ -60,23 +67,22 @@ export function initAssistant(site) {
     history = history.slice(-40);
     saveHistory();
   };
-  form.onsubmit = (event) => {
-    event.preventDefault();
-    const question = input.value.trim();
-    if (!question || input.disabled) return;
-    addMessage(question, "user"); input.value = ""; input.disabled = true; submit.disabled = true;
-    status.textContent = "문서를 검색하고 있습니다.";
-    if (!worker) worker = new Worker(new URL("./rag-worker.js", import.meta.url), { type: "module" });
-    worker.onmessage = ({ data }) => {
+  function handleWorkerMessage({ data }) {
       if (data.type === "status") { status.textContent = data.message; return; }
-      status.textContent = [data.semanticError ? "의미 검색 모델을 사용할 수 없어 키워드 검색을 사용했습니다." : "", data.timings ? `검색 ${(data.timings.searchMs / 1000).toFixed(1)}초 · 답변 및 검증 ${(data.timings.generationMs / 1000).toFixed(1)}초` : ""].filter(Boolean).join(" ");
+      status.textContent = [data.semanticError ? "의미 검색 모델을 사용할 수 없어 키워드 검색을 사용했습니다." : "", data.timings ? Object.entries({ "질문 임베딩": data.timings.embeddingMs, "벡터 검색": data.timings.vectorMs, "키워드 검색": data.timings.keywordMs, "재정렬": data.timings.rerankMs, "문맥 확장": data.timings.contextMs, "답변 생성": data.timings.generationMs, "근거 검증": data.timings.verificationMs, "전체": data.timings.totalMs }).filter(([, ms]) => Number.isFinite(ms)).map(([label, ms]) => `${label} ${(ms / 1000).toFixed(1)}초`).join(" · ") : ""].filter(Boolean).join(" ");
       input.disabled = false; submit.disabled = false;
       if (data.type === "error") addMessage(data.message, "bot");
       if (data.type === "result") {
         addMessage(data.answer, "bot", data.sources);
       }
-    };
-    worker.onerror = () => { worker?.terminate(); worker = undefined; input.disabled = false; submit.disabled = false; status.textContent = ""; addMessage("모델을 실행하지 못했습니다. 브라우저를 확인해 주세요.", "bot"); };
-    worker.postMessage({ type: "ask", question, site });
+  }
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    const question = input.value.trim();
+    if (!question || input.disabled) return;
+    addMessage(question, "user"); input.value = ""; input.disabled = true; submit.disabled = true;
+    status.textContent = "인덱스가 준비 중이면 완료 후 질문을 처리합니다.";
+    prepareWorker();
+    worker.postMessage({ type: "ask", question });
   };
 }

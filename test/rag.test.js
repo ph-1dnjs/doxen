@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chunksForSite, rankChunks, selectCandidates, expandContext, citedSources, verifyAnswer } from "../client/rag.js";
+import { chunksForSite, rankChunks, selectCandidates, expandContext, citedSources, verifyAnswer, prepareVectorIndex, prepareSearch, fitContext, byteTokenBound } from "../client/rag.js";
 
 test("RAG includes home and document sections with working encoded anchors", () => {
   const site = { home: { id: "__home", title: "홈", sections: [{ title: "소개", anchor: "", text: "홈 본문" }] }, documents: [
@@ -65,4 +65,50 @@ test("a citation verified for one claim cannot validate another claim", async ()
   const checked = await verifyAnswer("정책 하나 [1]\n정책 둘 [1] [2]", sources, async (claim, source) => ({ supported: source.text === claim, evidence: source.text }));
   assert.match(checked.answer, /정책 둘 \[2\]/);
   assert.doesNotMatch(checked.answer, /정책 둘.*\[1\]/);
+});
+
+
+test("persistent vector index reuses unchanged chunks and prunes removed chunks", async () => {
+  const cache = new Map();
+  const embedded = [];
+  const hooks = { keyFor: async (text) => text, read: async (key) => cache.get(key),
+    write: async (key, value) => cache.set(key, value), embed: async (text) => { embedded.push(text); return [1]; },
+    prune: async (keys) => { for (const key of cache.keys()) if (!keys.has(key)) cache.delete(key); } };
+  const chunks = [{ title: "A", heading: "첫째", text: "정책" }, { title: "B", heading: "둘째", text: "기존" }];
+  const vectors = await prepareVectorIndex(chunks, hooks);
+  assert.equal(embedded.length, 2);
+  const index = prepareSearch(chunks);
+  rankChunks(chunks, "정책", vectors, [1], 5, index);
+  rankChunks(chunks, "둘째", vectors, [1], 5, index);
+  assert.equal(embedded.length, 2);
+  await prepareVectorIndex([chunks[0], { ...chunks[1], text: "변경" }], hooks);
+  assert.equal(embedded.length, 3);
+  assert.equal(cache.size, 2);
+  assert.ok(![...cache.keys()].some((key) => key.includes("기존")));
+  await prepareVectorIndex([chunks[0]], hooks);
+  assert.equal(cache.size, 1);
+  assert.equal(embedded.length, 3);
+});
+
+
+test("context budget accounts for prompt, question and answer reserve and keeps whole chunks", async () => {
+  const sources = [{ title: "정책", heading: "조건", text: "가".repeat(400) }, { title: "정책", heading: "예외", text: "나".repeat(400) }];
+  const selected = await fitContext(sources, "질문", byteTokenBound, 3800);
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0], sources[0]);
+  assert.deepEqual(await fitContext(sources, "긴".repeat(3000), byteTokenBound, 3800), []);
+});
+
+test("index progress includes cached chunks and ends at total", async () => {
+  const progress = [];
+  const chunks = [{ title: "A", heading: "B", text: "C" }, { title: "D", heading: "E", text: "F" }];
+  await prepareVectorIndex(chunks, { keyFor: async (x) => x, read: async () => [1], write: async () => {}, embed: async () => { throw Error("cached"); }, progress: (done, total) => progress.push([done, total]) });
+  assert.deepEqual(progress, [[1, 2], [2, 2]]);
+});
+
+
+test("unresolved evidence cannot be turned into a confirmed claim", async () => {
+  const sources = [{ text: "인증번호 만료 시간은 TBD" }];
+  const result = await verifyAnswer("인증번호 만료 시간은 정해져 있습니다 [1]", sources, async () => ({ supported: true, evidence: sources[0].text }));
+  assert.equal(result, null);
 });

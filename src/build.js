@@ -15,6 +15,7 @@ import { extendSiteFiles } from "./api.js";
 import { collectSite } from "./content.js";
 import { inside } from "./config.js";
 import { build as bundle } from "esbuild";
+import { chunksForSite } from "../client/rag.js";
 
 const client = fileURLToPath(new URL("../client/", import.meta.url));
 const marker = ".doxen-output";
@@ -98,6 +99,10 @@ export async function siteFiles(config, dev = false) {
   files.set("/site.json", Buffer.from(JSON.stringify(data)));
   for (const [name, buffer] of assets) files.set(`/assets/${name}`, buffer);
   await extendSiteFiles(files, config);
+  if (!dev && config.deploy?.workersAiFree === true) {
+    const chunks = chunksForSite(JSON.parse(files.get("/site.json").toString()));
+    chunks.forEach((chunk, index) => files.set(`/__doxen-chunks/${index}.json`, Buffer.from(JSON.stringify(chunk))));
+  }
   return files;
 }
 

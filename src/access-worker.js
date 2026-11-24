@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { chunksForSite, answerSystemPrompt, verifyAnswer, verificationPrompt, parseVerification } from "../client/rag.js";
+import { answerSystemPrompt, verifyAnswer, verificationPrompt, parseVerification } from "../client/rag.js";
 
 export function accessWorker(access, keys = createRemoteJWKSet(
   new URL(`${access.teamDomain}/cdn-cgi/access/certs`),
@@ -43,18 +43,21 @@ export function accessWorker(access, keys = createRemoteJWKSet(
             !Array.isArray(data.sources) || !data.sources.length || data.sources.length > 8 ||
             !data.sources.every((source) => Number.isSafeInteger(source?.index) && source.index >= 0 && typeof source.text === "string" && source.text.length <= 1100))
           return new Response("잘못된 요청", { status: 400, headers });
-        const asset = await env.ASSETS.fetch(new Request(new URL("/site.json", url)));
-        if (!asset.ok) return new Response("문서를 불러오지 못했습니다.", { status: 503, headers });
-        const chunks = chunksForSite(await asset.json());
-        if (data.sources.some((source) => !chunks[source.index] || chunks[source.index].text !== source.text)) return new Response("문서가 변경되었습니다. 새로고침해 주세요.", { status: 409, headers });
-        const context = data.sources.map((source, i) => `[${i + 1}] ${chunks[source.index].title} / ${chunks[source.index].heading} (${chunks[source.index].documentType}, 수정일 ${chunks[source.index].modified || "미상"})\n${chunks[source.index].text}`).join("\n\n");
+        const selected = await Promise.all(data.sources.map(async (source) => {
+          const asset = await env.ASSETS.fetch(new Request(new URL(`/__doxen-chunks/${source.index}.json`, url)));
+          return asset.ok ? asset.json() : null;
+        }));
+        if (data.sources.some((source, i) => !selected[i] || selected[i].text !== source.text)) return new Response("문서가 변경되었습니다. 새로고침해 주세요.", { status: 409, headers });
+        const context = selected.map((chunk, i) => `[${i + 1}] ${chunk.title} / ${chunk.heading} (${chunk.documentType}, 수정일 ${chunk.modified || "미상"})\n${chunk.text}`).join("\n\n");
         try {
+          const generationStarted = performance.now();
           const result = await env.AI.run("@cf/openai/gpt-oss-20b", { messages: [
             { role: "system", content: answerSystemPrompt },
             { role: "user", content: `참고 자료:\n${context}\n\n질문: ${data.question}` },
           ], max_tokens: 768 });
           const answer = typeof result?.response === "string" ? result.response.trim() : "";
-          const selected = data.sources.map((source) => chunks[source.index]);
+          const generationMs = performance.now() - generationStarted;
+          const verificationStarted = performance.now();
           const checked = await verifyAnswer(answer, selected, async (claim, source) => {
             const result = await env.AI.run("@cf/openai/gpt-oss-20b", { messages: [
               { role: "system", content: verificationPrompt },
@@ -63,7 +66,7 @@ export function accessWorker(access, keys = createRemoteJWKSet(
             return parseVerification(result?.response || "");
           });
           if (!checked) return new Response("문서에서 답변의 근거를 확인하지 못했습니다.", { status: 502, headers });
-          return Response.json({ answer: checked.answer, evidence: checked.sources.map(({ number, evidence }) => ({ number, evidence })) }, { headers });
+          return Response.json({ answer: checked.answer, evidence: checked.sources.map(({ number, evidence }) => ({ number, evidence })), timings: { generationMs, verificationMs: performance.now() - verificationStarted } }, { headers });
         } catch (error) {
           const code = Number(error?.code) || Number(String(error?.message || "").match(/\b3036\b/)?.[0]);
           if (code === 3036) return new Response("오늘의 무료 사용량을 모두 사용했습니다. 내일 오전 9시 이후 다시 시도해 주세요.", { status: 429, headers });
