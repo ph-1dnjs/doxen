@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { extendSiteFiles } from "./api.js";
 import { collectSite } from "./content.js";
 import { inside } from "./config.js";
@@ -24,6 +25,7 @@ function getPresentationAssets() {
     entryPoints: {
       diagrams: path.join(client, "diagrams.js"),
       fonts: path.join(client, "fonts.css"),
+      "rag-worker": path.join(client, "rag-worker.js"),
     },
     bundle: true,
     splitting: true,
@@ -44,6 +46,7 @@ function getPresentationAssets() {
 
 export async function siteFiles(config, dev = false) {
   const { data, assets } = await collectSite(config);
+  if (!dev && config.deploy?.workersAiFree === true) data.assistant = { provider: "workers-ai-free" };
   const files = new Map();
   const initial = new Intl.Segmenter("ko", { granularity: "grapheme" })
     .segment(config.title.trim().normalize("NFC"))[Symbol.iterator]()
@@ -54,12 +57,15 @@ export async function siteFiles(config, dev = false) {
       `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${config.icon.background}"/><text x="16" y="16" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="${config.icon.color}">${initial.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</text></svg>`,
     ),
   );
-  for (const name of ["index.html", "app.js", "style.css", "search.js", "comments.js"])
+  for (const name of ["index.html", "app.js", "style.css", "search.js", "comments.js", "assistant.js"])
     files.set(`/${name}`, await readFile(path.join(client, name)));
   for (const output of (await getPresentationAssets()).outputFiles) {
     const name = path.relative(path.join(client, "generated"), output.path).split(path.sep).join("/");
     files.set(`/${name}`, Buffer.from(output.contents));
   }
+  const ort = path.dirname(createRequire(import.meta.url).resolve("onnxruntime-web"));
+  for (const name of ["ort-wasm-simd-threaded.mjs", "ort-wasm-simd-threaded.wasm"])
+    files.set(`/${name}`, await readFile(path.join(ort, name)));
   for (const name of ["page.js", "viewer.js", "model.js", "viewer.css"])
     files.set(`/api-reference/${name}`, await readFile(path.join(client, "api-reference", name)));
   let html = files.get("/index.html").toString();

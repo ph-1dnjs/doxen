@@ -59,6 +59,14 @@
       <div id="search-suggestions" hidden></div>
       <div id="results"></div>
     </dialog>
+    <button id="assistant-toggle" class="assistant-toggle" type="button" aria-label="문서 도우미 열기" aria-controls="assistant-panel" aria-expanded="false"><svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3C6.75 3 3 6.58 3 11c0 2.2.93 4.18 2.47 5.62-.12 1.3-.6 2.6-1.4 3.5-.2.23-.02.6.28.57 1.95-.2 3.5-.9 4.56-1.6A10.6 10.6 0 0 0 12 19c5.25 0 9-3.58 9-8s-3.75-8-9-8z"/><circle cx="8.5" cy="11" r="1" fill="var(--accent, #ea580c)"/><circle cx="12" cy="11" r="1" fill="var(--accent, #ea580c)"/><circle cx="15.5" cy="11" r="1" fill="var(--accent, #ea580c)"/></svg></button>
+    <section id="assistant-panel" class="assistant-panel" aria-label="문서 도우미" hidden>
+      <header class="assistant-head"><div><strong>문서 도우미</strong><small>문서에서 필요한 내용을 찾아드려요</small></div><button id="assistant-close" type="button" aria-label="닫기">×</button></header>
+      <div id="assistant-messages" class="assistant-messages" aria-live="polite"><div class="assistant-welcome">안녕하세요!<br>문서에 대해 무엇이든 물어보세요.<small id="assistant-privacy">질문과 문서는 이 기기에서 처리합니다. 처음 사용할 때 모델을 다운로드합니다.</small></div></div>
+      <p id="assistant-status" class="assistant-status" role="status"></p>
+      <form id="assistant-form" class="assistant-form"><input id="assistant-input" aria-label="문서에 질문하기" placeholder="문서에 대해 물어보세요" maxlength="500" required><button type="submit" aria-label="보내기">↑</button></form>
+      <div class="assistant-bottom"><span>AI 답변은 원문을 확인해 주세요</span><button id="assistant-reset" type="button">새 대화</button></div>
+    </section>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

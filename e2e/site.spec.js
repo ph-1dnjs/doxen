@@ -1,6 +1,31 @@
 import { test, expect } from "@playwright/test";
 import MarkdownIt from "markdown-it";
 
+test("document assistant loads and runs the real embedding model", async ({ page }) => {
+  test.skip(!process.env.DOXEN_TEST_RAG_MODEL, "requires model download");
+  test.setTimeout(240000);
+  await page.goto("./");
+  await page.getByRole("button", { name: "문서 도우미 열기" }).click();
+  await page.getByRole("textbox", { name: "문서에 질문하기" }).fill("Doxen");
+  await page.getByRole("button", { name: "보내기" }).click();
+  await expect(page.locator(".assistant-sources a").first()).toBeVisible({ timeout: 220000 });
+  await expect(page.locator("#assistant-status")).not.toContainText("키워드 검색");
+});
+
+test("document assistant falls back to local search when models cannot load", async ({ page }) => {
+  await page.route("https://huggingface.co/**", (route) => route.abort());
+  await page.goto("./");
+  await page.getByRole("button", { name: "문서 도우미 열기" }).click();
+  await page.getByRole("textbox", { name: "문서에 질문하기" }).fill("Doxen");
+  await page.getByRole("button", { name: "보내기" }).click();
+  await expect(page.locator("#assistant-status")).toContainText("키워드 검색", { timeout: 30000 });
+  await expect(page.locator(".assistant-sources a").first()).toBeVisible();
+  await page.getByRole("button", { name: "새 대화" }).click();
+  await expect(page.locator(".assistant-message")).toHaveCount(0);
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(page.locator("#assistant-panel")).toBeHidden();
+});
+
 test("folder spreadsheet opens and switches sheets", async ({ page }) => {
   await page.route("**/site.json", (route) => route.fulfill({ json: {
     title: "문서", tabs: [{ slug: "guide", title: "안내" }],
@@ -421,14 +446,14 @@ test("comments attach a selected passage and remain expanded", async ({ page }) 
   expect(saved.quote).toBe("선택할");
   await expect(paragraph.locator(".comment-draft-highlight")).toHaveCount(0);
   await expect(paragraph.locator(".comment-highlight")).toHaveText("선택할");
-  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await expect(page.getByText("확인해 주세요", { exact: true })).toBeVisible();
   await paragraph.locator("..").getByLabel("댓글 내용").fill("두 번째 댓글");
   await paragraph.locator("..").getByRole("button", { name: "댓글 등록" }).click();
-  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await expect(page.getByText("확인해 주세요", { exact: true })).toBeVisible();
   await expect(page.getByText("두 번째 댓글")).toBeVisible();
   await page.locator("body").click({ position: { x: 1, y: 1 } });
   await page.getByRole("button", { name: "댓글 2개 더보기" }).click();
-  await expect(page.getByText("확인해 주세요")).toBeVisible();
+  await expect(page.getByText("확인해 주세요", { exact: true })).toBeVisible();
   await expect(page.getByText("두 번째 댓글")).toBeVisible();
   await expect(page.locator(".comment-list details, .comment-list summary")).toHaveCount(0);
 });

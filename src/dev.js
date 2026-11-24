@@ -20,6 +20,8 @@ const types = {
   ".pdf": "application/pdf",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".woff2": "font/woff2",
+  ".wasm": "application/wasm",
+  ".mjs": "text/javascript; charset=utf-8",
 };
 
 export async function dev(cwd, configPath, port = 4173) {

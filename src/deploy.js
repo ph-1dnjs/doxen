@@ -25,18 +25,21 @@ export function validateDeployment(deploy) {
   if (deploy.comments && (typeof deploy.comments.databaseName !== "string" || !/^[a-zA-Z0-9_-]+$/.test(deploy.comments.databaseName) ||
       typeof deploy.comments.databaseId !== "string" || !/^[a-f0-9-]{36}$/i.test(deploy.comments.databaseId)))
     throw new Error("deploy.comments에 올바른 databaseName과 databaseId를 설정하세요.");
+  if (deploy.workersAiFree !== undefined && typeof deploy.workersAiFree !== "boolean")
+    throw new Error("deploy.workersAiFree는 true 또는 false여야 합니다.");
   return {
     project: deploy.project,
     access: { teamDomain: access.teamDomain, audiences: access.audiences, emails: access.emails },
     ...(deploy.comments ? { comments: deploy.comments } : {}),
+    ...(deploy.workersAiFree === true ? { workersAiFree: true } : {}),
   };
 }
 
 export async function protectedFiles(deploy) {
-  const { access } = validateDeployment(deploy);
+  const { access, workersAiFree } = validateDeployment(deploy);
   const result = await bundle({
     stdin: {
-      contents: `import { accessWorker } from './access-worker.js';\nexport default accessWorker(${JSON.stringify(access)});`,
+      contents: `import { accessWorker } from './access-worker.js';\nexport default accessWorker(${JSON.stringify(access)}, undefined, ${Boolean(workersAiFree)});`,
       resolveDir: fileURLToPath(new URL(".", import.meta.url)),
     },
     bundle: true,
@@ -98,6 +101,7 @@ export async function deploy(config, options) {
       name: settings.project,
       pages_build_output_dir: out,
       compatibility_date: "2026-10-08",
+      ...(settings.workersAiFree ? { ai: { binding: "AI" } } : {}),
       ...(settings.comments ? { d1_databases: [{ binding: "COMMENTS_DB", database_name: settings.comments.databaseName, database_id: settings.comments.databaseId }] } : {}),
     }));
     await new Promise((resolve, reject) => {

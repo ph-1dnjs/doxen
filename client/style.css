@@ -1434,3 +1434,21 @@ article .document-actions-menu a:not(.folder-cards a) { text-decoration: none; }
 .comment-card-head strong { flex: 0 1 auto; margin-right: 6px; }
 .comment-card-head time { margin-right: auto; font-size: 11px; white-space: nowrap; }
 .comment-card-head .comment-edit, .comment-card-head .comment-delete { flex: none; width: 28px; height: 28px; padding: 0; }
+/* 문서 도우미 */
+.assistant-toggle { position: fixed; right: 24px; bottom: 24px; z-index: 80; width: 60px; height: 60px; border: 0; border-radius: 50%; background: var(--accent, #ea580c); color: white; box-shadow: 0 10px 24px #11182733; cursor: pointer; letter-spacing: 2px; }
+.assistant-panel { position: fixed; right: 24px; bottom: 100px; z-index: 80; width: 380px; height: min(640px, calc(100dvh - 125px)); display: flex; flex-direction: column; overflow: hidden; border-radius: 22px; background: #f7f7f8; box-shadow: 0 24px 60px #11182733, 0 2px 8px #11182710; }
+.assistant-panel[hidden] { display: none; }
+.assistant-head { flex: none; display: flex; width: 100%; max-width: none; height: 68px; margin: 0; gap: 8px; align-items: center; padding: 16px 18px; background: var(--accent, #ea580c); color: white; }
+.assistant-head div { flex: 1; } .assistant-head strong { display: block; font-size: 15px; } .assistant-head small { display: block; margin-top: 3px; opacity: .85; font-size: 12px; }
+.assistant-head button { border: 0; background: transparent; color: white; font-size: 25px; cursor: pointer; }
+.assistant-messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 18px 14px; }
+.assistant-welcome, .assistant-message.bot { align-self: flex-start; max-width: 100%; padding: 12px 14px; background: white; border: 1px solid #ecedef; border-radius: 4px 14px 14px; color: #191919; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-welcome small { display: block; margin-top: 10px; color: #6b7280; font-size: 12px; }
+.assistant-message.user { align-self: flex-end; max-width: 85%; padding: 10px 12px; border-radius: 14px 4px 14px 14px; background: var(--accent, #ea580c); color: white; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-sources { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #ecedef; }
+.assistant-sources a { color: var(--accent, #c2410c); font-size: 12px; font-weight: 600; } .assistant-sources small { margin-bottom: 6px; color: #6b7280; font-size: 12px; line-height: 1.5; }
+.assistant-status { margin: 0; padding: 0 14px; color: #6b7280; font-size: 12px; }
+.assistant-form { flex: none; display: flex; gap: 8px; margin: 8px 12px 12px; padding: 6px 6px 6px 14px; border: 1px solid #e5e7eb; border-radius: 14px; background: white; }
+.assistant-form input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; } .assistant-form button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--accent, #ea580c); color: white; cursor: pointer; } .assistant-form button:disabled { opacity: .5; }
+.assistant-bottom { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-top: 1px solid #ecedef; background: white; color: #6b7280; font-size: 12px; } .assistant-bottom button { border: 0; background: none; color: inherit; cursor: pointer; }
+@media (max-width: 480px) { .assistant-panel { right: 12px; bottom: 88px; width: calc(100% - 24px); height: min(640px, calc(100dvh - 108px)); } .assistant-toggle { right: 16px; bottom: 16px; } }

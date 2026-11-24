@@ -70,6 +70,7 @@ export function deploymentFromState(state) {
   return {
     project: state.project,
     ...(state.comments ? { comments: state.comments } : {}),
+    ...(state.workersAiFree === true ? { workersAiFree: true } : {}),
     access: { teamDomain: state.teamDomain, audiences: Object.values(state.apps).map((app) => app.aud), emails: state.emails },
   };
 }

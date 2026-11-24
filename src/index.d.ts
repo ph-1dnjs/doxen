@@ -7,6 +7,7 @@ export interface DocsConfig {
   api?: { document: string; spec?: string; metadata?: string };
   deploy?: {
     project: string;
+    workersAiFree?: boolean;
     comments?: { databaseName: string; databaseId: string };
     access: {
       teamDomain: string;

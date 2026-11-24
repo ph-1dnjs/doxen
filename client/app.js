@@ -1,5 +1,6 @@
 import { renderApiReference } from "./api-reference/page.js";
 import { searchDocuments, matchRanges, matchesRow } from "./search.js";
+import { initAssistant } from "./assistant.js";
 import { attachComments } from "./comments.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -978,6 +979,7 @@ try {
   const response = await fetch("./site.json");
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   site = await response.json();
+  initAssistant(site);
   $("#site-title").textContent = site.title;
   render();
 } catch (error) {

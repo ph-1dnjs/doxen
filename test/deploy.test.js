@@ -9,6 +9,8 @@ import { build } from "../src/build.js";
 import { mkdir, mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setupAssistant } from "../src/assistant-setup.js";
+import { readDeploymentState } from "../src/deploy-state.js";
 
 const settings = {
   project: "team-docs",
@@ -18,6 +20,46 @@ const settings = {
     emails: ["member@example.com"],
   },
 };
+
+test("Workers AI setup requires a ready deployment and explicit Free confirmation", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "doxen-assistant-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await init(root);
+  const config = await loadConfig(root);
+  await assert.rejects(setupAssistant(config, { prompt: { confirm: async () => true }, log: () => {} }), /먼저/);
+  const state = { version: 1, configFile: path.basename(config.file), accountId: "b".repeat(32), project: "team-docs", emails: ["member@example.com"], apps: {}, ready: true };
+  const ready = { ...config, deploymentState: state };
+  await assert.rejects(setupAssistant(ready, { prompt: { confirm: async () => false }, log: () => {} }), /설정하지/);
+  assert.equal(await readDeploymentState(root, config.file), null);
+  await setupAssistant(ready, { prompt: { confirm: async () => true }, log: () => {} });
+  assert.equal((await readDeploymentState(root, config.file)).workersAiFree, true);
+});
+
+test("Workers AI endpoint requires Access and handles free quota exhaustion", async () => {
+  const { privateKey, publicKey } = await generateKeyPair("RS256");
+  const keys = createLocalJWKSet({ keys: [{ ...await exportJWK(publicKey), kid: "assistant", alg: "RS256" }] });
+  const worker = accessWorker(settings.access, keys, true);
+  const token = await new SignJWT({ email: "member@example.com" }).setProtectedHeader({ alg: "RS256", kid: "assistant" })
+    .setIssuer(settings.access.teamDomain).setAudience(settings.access.audiences).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+  const site = { documents: [{ id: "guide/start", title: "시작", sections: [{ title: "설치", text: "npm install", anchor: "install" }] }] };
+  let calls = 0;
+  const env = { ASSETS: { fetch: async () => Response.json(site) }, AI: { run: async () => { calls++; return { response: "설치하세요 [1]" }; } } };
+  const headers = { "content-type": "application/json", origin: "https://team-docs.pages.dev", "cf-access-jwt-assertion": token };
+  const url = "https://team-docs.pages.dev/__doxen/assistant";
+  const body = JSON.stringify({ question: "설치 방법", sources: [{ index: 0, text: "npm install" }] });
+  assert.equal((await worker.fetch(new Request(url, { method: "POST", headers: { ...headers, "cf-access-jwt-assertion": "invalid" }, body }), env)).status, 403);
+  assert.equal((await worker.fetch(new Request(url, { method: "POST", headers: { ...headers, origin: "https://evil.example" }, body }), env)).status, 403);
+  assert.equal(calls, 0);
+  const response = await worker.fetch(new Request(url, { method: "POST", headers, body }), env);
+  assert.deepEqual(await response.json(), { answer: "설치하세요 [1]" });
+  assert.equal(calls, 1);
+  const stale = JSON.stringify({ question: "설치", sources: [{ index: 0, text: "old content" }] });
+  assert.equal((await worker.fetch(new Request(url, { method: "POST", headers, body: stale }), env)).status, 409);
+  env.AI.run = async () => { throw Object.assign(new Error("quota"), { code: 3036 }); };
+  const limited = await worker.fetch(new Request(url, { method: "POST", headers, body }), env);
+  assert.equal(limited.status, 429);
+  assert.match(await limited.text(), /무료 사용량/);
+});
 
 test("deployment rejects absent and unsafe access configuration", () => {
   for (const value of [undefined, {}, { ...settings, access: {} },
@@ -134,7 +176,7 @@ test("deploy builds before invoking local Wrangler and propagates upload failure
     const args = process.argv.slice(2);
     const out = args[2];
     if (!fs.existsSync(path.join(out, '_worker.js'))) process.exit(2);
-    fs.writeFileSync(path.join(${JSON.stringify(root)}, 'invocation.json'), JSON.stringify({args, cwd: process.cwd()}));
+    fs.writeFileSync(path.join(${JSON.stringify(root)}, 'invocation.json'), JSON.stringify({args, cwd: process.cwd(), config: JSON.parse(fs.readFileSync('wrangler.json', 'utf8'))}));
   `);
   const saved = { account: process.env.CLOUDFLARE_ACCOUNT_ID, token: process.env.CLOUDFLARE_API_TOKEN };
   t.after(() => {
@@ -152,6 +194,12 @@ test("deploy builds before invoking local Wrangler and propagates upload failure
   await deploy(config);
   const invocation = JSON.parse(await readFile(path.join(root, "invocation.json")));
   assert.deepEqual(invocation.args, ["pages", "deploy", path.join(config.root, ".docs-dist"), "--project-name", "team-docs", "--branch", "release"]);
+  assert.equal(invocation.config.ai, undefined);
+  await deploy({ ...config, deploy: { ...settings, workersAiFree: true } });
+  const enabled = JSON.parse(await readFile(path.join(root, "invocation.json")));
+  assert.deepEqual(enabled.config.ai, { binding: "AI" });
+  const site = JSON.parse(await readFile(path.join(config.root, ".docs-dist", "site.json")));
+  assert.deepEqual(site.assistant, { provider: "workers-ai-free" });
   await assert.rejects(readFile(path.join(invocation.cwd, "wrangler.json")), { code: "ENOENT" });
   await writeFile(path.join(wrangler, "bin", "wrangler.js"), "process.exit(9);");
   await assert.rejects(deploy(config), /종료 코드 9/);

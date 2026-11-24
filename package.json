@@ -1,6 +1,6 @@
 {
   "name": "@unana_dev/doxen",
-  "version": "0.3.3",
+  "version": "0.3.5-beta.0",
   "description": "Config-first Markdown documentation sites with Korean and section search",
   "type": "module",
   "bin": {
@@ -33,7 +33,9 @@
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "^5.3.1",
+    "@huggingface/transformers": "^4.3.2",
     "@inquirer/prompts": "7.10.1",
+    "@mlc-ai/web-llm": "^0.2.89",
     "chokidar": "^4.0.3",
     "esbuild": "^0.28.2",
     "github-slugger": "^2.0.0",
