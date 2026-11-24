@@ -1,10 +1,11 @@
 import { pipeline, env } from "@huggingface/transformers";
 import { CreateMLCEngine } from "@mlc-ai/web-llm";
-import { chunksForSite, rankChunks } from "./rag.js";
+import { chunksForSite, rankChunks, selectCandidates } from "./rag.js";
 
 // Models run in this worker. The embedding vectors remain in memory only.
 env.allowLocalModels = false;
-let chunks = [], vectors, embedder, engine;
+let chunks = [], embedder, engine;
+const vectorCache = new Map();
 const status = (message) => postMessage({ type: "status", message });
 
 async function embed(text) {
@@ -17,27 +18,34 @@ self.onmessage = async ({ data }) => {
   try {
     if (!chunks.length) chunks = chunksForSite(data.site);
     if (!chunks.length) return postMessage({ type: "result", sources: [], answer: "검색할 문서가 없습니다." });
-    let semanticError = false;
+    const candidates = selectCandidates(chunks, data.question);
+    if (!candidates.length) return postMessage({ type: "result", sources: [], answer: "관련 문서를 찾지 못했습니다. 다른 표현으로 질문해 주세요." });
+    let semanticError = false, vectors, queryVector;
     try {
       if (!embedder) {
         status("의미 검색 모델을 준비하고 있습니다. 처음에는 다운로드가 필요합니다.");
         embedder = await pipeline("feature-extraction", "Xenova/multilingual-e5-small", { dtype: "q8" });
       }
-      if (!vectors) {
-        const next = [];
-        for (let i = 0; i < chunks.length; i++) {
-          if (i % 10 === 0) status(`문서를 분석하고 있습니다 (${i + 1}/${chunks.length}).`);
-          next.push(await embed(`passage: ${chunks[i].title} ${chunks[i].heading} ${chunks[i].text}`));
+      const next = [];
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        let vector = vectorCache.get(candidate);
+        if (!vector) {
+          if (i % 5 === 0) status(`관련 문서를 분석하고 있습니다 (${i + 1}/${candidates.length}).`);
+          vector = await embed(`passage: ${candidate.title} ${candidate.heading} ${candidate.text}`);
+          vectorCache.set(candidate, vector);
         }
-        vectors = next;
+        next.push(vector);
       }
+      vectors = next;
+      queryVector = await embed(`query: ${data.question}`);
     } catch (error) {
       semanticError = true;
       embedder = undefined;
       vectors = undefined;
     }
-    const queryVector = vectors ? await embed(`query: ${data.question}`) : undefined;
-    const sources = rankChunks(chunks, data.question, vectors, queryVector);
+    const ranked = rankChunks(candidates, data.question, vectors, queryVector);
+    const sources = ranked.length ? ranked : candidates.slice(0, 5);
     if (!sources.length) return postMessage({ type: "result", sources: [], answer: "관련 문서를 찾지 못했습니다. 다른 표현으로 질문해 주세요.", semanticError });
     if (data.site.assistant?.provider === "workers-ai-free") {
       status("문서를 바탕으로 답변을 작성하고 있습니다.");

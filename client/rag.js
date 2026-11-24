@@ -1,5 +1,31 @@
 const normalize = (value) => value.normalize("NFKC").toLocaleLowerCase("ko");
 
+// Narrow the expensive embedding work to a small set using Korean syllable pairs
+// and whole words. A query without shared terms deliberately returns no result.
+export function selectCandidates(chunks, question, limit = 24) {
+  const words = [...new Set(normalize(question).match(/[\p{L}\p{N}_-]{2,}/gu) || [])].slice(0, 24);
+  const terms = [...new Set(words.flatMap((word) => {
+    const chars = Array.from(word);
+    return chars.length > 2 ? [word, ...chars.slice(0, -1).map((_, i) => chars.slice(i, i + 2).join(""))] : [word];
+  }))].slice(0, 80);
+  if (!terms.length) return [];
+  const frequency = new Array(terms.length).fill(0);
+  const hits = chunks.map((chunk, index) => {
+    const title = normalize(`${chunk.title} ${chunk.heading}`).replace(/\s+/g, "");
+    const body = normalize(chunk.text).replace(/\s+/g, "");
+    const found = [];
+    terms.forEach((term, i) => {
+      const titleMatch = title.includes(term);
+      if (titleMatch || body.includes(term)) { frequency[i]++; found.push([i, titleMatch]); }
+    });
+    return { index, found };
+  });
+  return hits.filter((item) => item.found.length).map((item) => ({
+    index: item.index,
+    score: item.found.reduce((sum, [i, title]) => sum + Math.log(1 + chunks.length / frequency[i]) * (title ? 3 : 1) * (words.includes(terms[i]) ? 2 : 1), 0),
+  })).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, limit).map(({ index }) => chunks[index]);
+}
+
 // Keep heading anchors intact while limiting how much text reaches the model.
 export function chunksForSite(site) {
   const documents = [...(site.home ? [site.home] : []), ...site.documents];

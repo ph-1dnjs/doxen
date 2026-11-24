@@ -20,7 +20,16 @@ test("document assistant falls back to local search when models cannot load", as
   await page.getByRole("button", { name: "보내기" }).click();
   await expect(page.locator("#assistant-status")).toContainText("키워드 검색", { timeout: 30000 });
   await expect(page.locator(".assistant-sources a").first()).toBeVisible();
+  const answer = await page.locator(".assistant-message.bot").textContent();
+  await page.reload();
+  await page.getByRole("button", { name: "문서 도우미 열기" }).click();
+  await expect(page.locator(".assistant-message.user")).toHaveText("Doxen");
+  await expect(page.locator(".assistant-message.bot")).toHaveText(answer);
+  await expect(page.locator(".assistant-sources a").first()).toBeVisible();
   await page.getByRole("button", { name: "새 대화" }).click();
+  await expect(page.locator(".assistant-message")).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("button", { name: "문서 도우미 열기" }).click();
   await expect(page.locator(".assistant-message")).toHaveCount(0);
   await page.getByRole("button", { name: "닫기", exact: true }).click();
   await expect(page.locator("#assistant-panel")).toBeHidden();

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chunksForSite, rankChunks } from "../client/rag.js";
+import { chunksForSite, rankChunks, selectCandidates } from "../client/rag.js";
 
 test("RAG includes home and document sections with working encoded anchors", () => {
   const site = { home: { id: "__home", title: "홈", sections: [{ title: "소개", anchor: "", text: "홈 본문" }] }, documents: [
@@ -10,6 +10,15 @@ test("RAG includes home and document sections with working encoded anchors", () 
   const chunks = chunksForSite(site);
   assert.equal(chunks.length, 2);
   assert.equal(chunks[1].href, "#/%EA%B0%80%EC%9D%B4%EB%93%9C%2F%EC%84%A4%EC%B9%98/%EC%8B%9C%EC%9E%91-%ED%95%98%EA%B8%B0");
+});
+
+test("retrieval narrows a large corpus and matches Korean spacing variants", () => {
+  const chunks = Array.from({ length: 4436 }, (_, i) => ({ title: `문서 ${i}`, heading: "일반 안내", text: "관계없는 내용" }));
+  chunks[3123] = { title: "본인 인증 정책", heading: "인증 번호 발송", text: "문자 발송 제한과 재전송 정책" };
+  const candidates = selectCandidates(chunks, "본인인증 인증번호 발송 케이스 정책");
+  assert.ok(candidates.length <= 24);
+  assert.equal(candidates[0], chunks[3123]);
+  assert.deepEqual(selectCandidates(chunks, ""), []);
 });
 
 test("hybrid retrieval combines semantic and lexical matches and handles no result", () => {
