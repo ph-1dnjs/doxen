@@ -129,6 +129,23 @@ test("TypeScript config, cross-tab links, unique Korean anchors and searchable c
   assert.equal(searchDocuments(data.documents, "   ").length, 0);
 });
 
+test("Markdown table cells render explicit line breaks and preserve literal markup", async (t) => {
+  const root = await fixture(t);
+  await writeFile(
+    path.join(root, "guide", "table.md"),
+    [
+      "| 기능 역할 | 비고 |",
+      "| --- | --- |",
+      "| 첫째<br>둘째<BR/>셋째<br />넷째 | `<br>` \\<br> <br class=x> <em>텍스트</em> |",
+    ].join("\n"),
+  );
+  const { data } = await collectSite(await loadConfig(root));
+  const doc = data.documents.find(({ id }) => id === "guide/table");
+  assert.match(doc.html, /<td>첫째<br\s*\/>\n둘째<br\s*\/>\n셋째<br\s*\/>\n넷째<\/td>/);
+  assert.match(doc.html, /<td><code>&lt;br&gt;<\/code> &lt;br&gt; &lt;br class=x&gt; &lt;em&gt;텍스트&lt;\/em&gt;<\/td>/);
+  assert.match(doc.sections[0].text, /첫째 둘째 셋째 넷째/);
+});
+
 test("search normalizes decomposed Korean and fullwidth Latin while preserving highlight offsets", () => {
   const source = "빌드".normalize("NFD");
   assert.deepEqual(matchRanges(`앞 ${source} 뒤`, "빌드"), [

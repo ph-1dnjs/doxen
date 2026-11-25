@@ -16,6 +16,8 @@ const env = { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: "private-tes
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), "doxen-setup-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  // Node's test runner can misread non-ASCII stdout as a serialized test event.
+  t.mock.method(console, "log", () => {});
   await init(root);
   return loadConfig(root);
 }

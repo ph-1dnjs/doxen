@@ -140,6 +140,12 @@ kbd {
   padding: 0 24px;
   margin: auto;
 }
+body.is-wide-view .layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.is-wide-view :is(.sidebar, .toc, .compact-toc) {
+  display: none !important;
+}
 .sidebar {
   position: sticky;
   top: var(--site-header-height);
@@ -839,7 +845,22 @@ article table {
   font-size: 14px;
   line-height: 1.6;
   margin: 12px 0 22px;
-  table-layout: fixed;
+  table-layout: auto;
+}
+.table-scroll {
+  max-width: 100%;
+  margin: 12px 0 22px;
+  overflow-x: auto;
+}
+article .table-scroll > table {
+  margin: 0;
+}
+article .table-scroll :is(th, td) {
+  max-width: 34ch;
+  word-break: keep-all;
+}
+article .table-scroll .table-compact-cell {
+  white-space: nowrap;
 }
 article th,
 article td {
@@ -1426,7 +1447,40 @@ article .document-actions-menu a:not(.folder-cards a) { text-decoration: none; }
 .document-actions-menu .document-actions-divider { height: 1px; margin: 6px 6px; background: #e5e7eb; }
 .document-actions-menu .document-github span { flex: 1; }
 .document-actions-menu .document-external-icon { color: #6b7280; }
+.wide-view-switch {
+  display: flex;
+  align-items: center;
+  width: 30px;
+  height: 18px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 999px;
+  background: #6b7280;
+}
+.wide-view-switch::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+}
+.document-wide-view[aria-checked="true"] .wide-view-switch {
+  justify-content: flex-end;
+  background: var(--accent, #247bce);
+}
 .document-actions[open] summary { background: #e5e7eb; color: #191919; }
+.document-actions[open] summary {
+  view-transition-name: width-menu-button;
+}
+.document-actions[open] .document-actions-menu {
+  view-transition-name: width-menu-panel;
+}
+::view-transition-group(root),
+::view-transition-group(width-menu-button),
+::view-transition-group(width-menu-panel) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-in-out;
+}
 
 #content { scroll-margin-top: var(--site-header-height); }
 .comment-card-head { gap: 0; }
