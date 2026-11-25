@@ -314,6 +314,81 @@ test("table searches are automatic and keep filters independent", async ({ page 
   await expect(page.locator("[data-table-search]")).toHaveCount(0);
 });
 
+test("wide view hides both side panels and keeps the reading position when toggled", async ({ page }) => {
+  await page.setViewportSize({ width: 1512, height: 850 });
+  await page.goto("./#/guide%2F03-section-template");
+  const article = page.locator("#article");
+  const heading = article.getByRole("heading", { name: "2. 검색 실행" });
+  const toggle = page.getByRole("switch", { name: "전체 너비" });
+  await expect(heading).toBeVisible();
+  await page.getByLabel("문서 액션 더보기").click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.focus();
+  await heading.evaluate((element) => {
+    window.scrollBy(0, element.getBoundingClientRect().top - 1);
+  });
+  const initial = await heading.boundingBox();
+  const width = (await article.boundingBox()).width;
+
+  await page.keyboard.press("Space");
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".document-actions")).toHaveAttribute("open", "");
+  await expect(page.locator(".sidebar")).toBeHidden();
+  await expect(page.locator(".toc")).toBeHidden();
+  expect((await article.boundingBox()).width).toBeGreaterThan(width);
+  expect((await heading.boundingBox()).y).toBeCloseTo(initial.y, 0);
+
+  await page.keyboard.press("Space");
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await expect(page.locator(".document-actions")).toHaveAttribute("open", "");
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await expect(page.locator(".toc")).toBeVisible();
+  expect((await article.boundingBox()).width).toBeCloseTo(width);
+  expect((await heading.boundingBox()).y).toBeCloseTo(initial.y, 0);
+});
+
+test("Markdown tables wrap to fit and only scroll when their columns cannot fit", async ({ page }) => {
+  const description = "최근 연동 실패 건수를 집계하고 전체 오류 목록을 표시합니다. ".repeat(4).trim();
+  const wideRow = (cell) => `| ${Array(12).fill(cell).join(" | ")} |`;
+  const html = new MarkdownIt().render([
+    "| No. | 기능명 | 기능 역할 | 비고 |",
+    "| --- | --- | --- | --- |",
+    `| 1 | SAP 연동 오류 | ${description} | ${description} |`,
+    "",
+    wideRow("기능명"),
+    wideRow("---"),
+    wideRow("SAP 연동 오류"),
+  ].join("\n"));
+  await page.route("**/site.json", (route) => route.fulfill({ json: {
+    title: "문서",
+    tabs: [{ slug: "guide", title: "안내" }],
+    documents: [{ id: "guide/table", tab: "guide", path: "table.md", title: "이슈 모니터링", toc: [], sections: [], html }],
+  } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("./#/guide%2Ftable");
+  const tables = page.locator("article .table-scroll");
+  await expect(tables).toHaveCount(2);
+  const layout = await tables.first().evaluate((element) => {
+    const table = element.querySelector("table");
+    const cells = table.tBodies[0].rows[0].cells;
+    const range = document.createRange();
+    range.selectNodeContents(cells[1]);
+    const shortCellLines = range.getClientRects().length;
+    range.selectNodeContents(cells[2]);
+    return {
+      fits: element.scrollWidth === element.clientWidth,
+      shortCellLines,
+      longCellWraps: range.getClientRects().length > 1,
+      pageFits: document.documentElement.scrollWidth === window.innerWidth,
+    };
+  });
+  expect(layout).toEqual({ fits: true, shortCellLines: 1, longCellWraps: true, pageFits: true });
+  expect(await tables.last().evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+    return element.scrollLeft;
+  })).toBeGreaterThan(0);
+});
+
 test("desktop and mobile layouts stay within the viewport", async ({
   page,
 }, testInfo) => {
@@ -348,7 +423,7 @@ test("section tables filter by any cell and restore rows on clear", async ({ pag
   await page.goto("./#/guide%2F03-section-template");
   await expect(page.locator("article h2")).toHaveCount(4);
   await expect(page.locator("[data-table-search]")).toHaveCount(3);
-  await expect(page.locator(".section-tools + table")).toHaveCount(3);
+  await expect(page.locator(".section-tools + .table-scroll > table")).toHaveCount(3);
   const section = page.locator(".search-section").nth(0);
   const input = page.getByRole("searchbox", { name: "문서 준비 검색", exact: true });
   await expect(section.locator("tbody tr:visible")).toHaveCount(6);
@@ -731,8 +806,8 @@ test('document actions show icons, share the page and close outside', async ({ p
   const github = page.getByRole('link', { name: 'GitHub 저장소 바로가기' });
   await expect(github).toHaveAttribute('href', 'https://github.com/example/docs');
   await expect(github).toHaveCSS('text-decoration-line', 'none');
-  await expect(page.locator('.document-actions-menu svg')).toHaveCount(5);
-  await expect(page.locator('.document-actions-menu > :not([role=separator])')).toHaveText(['문서 다운로드', '댓글 모두 보기', '공유하기', 'GitHub 저장소 바로가기']);
+  await expect(page.locator('.document-actions-menu svg')).toHaveCount(6);
+  await expect(page.locator('.document-actions-menu > :not([role=separator])')).toHaveText(['문서 다운로드', '댓글 모두 보기', '공유하기', '전체 너비', 'GitHub 저장소 바로가기']);
   await expect(page.locator('.document-actions-divider')).toBeVisible();
   const gap = await page.locator('.document-actions-menu').evaluate((menu) => menu.getBoundingClientRect().top - menu.previousElementSibling.getBoundingClientRect().bottom);
   expect(gap).toBe(8);

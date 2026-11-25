@@ -125,6 +125,14 @@ export async function collectSite(config) {
       linkify: true,
       typographer: false,
     });
+    md.inline.ruler.before("html_inline", "explicit_break", (state, silent) => {
+      if (state.src[state.pos] !== "<") return false;
+      const match = /^<br[ \t]*\/?>/i.exec(state.src.slice(state.pos, state.posMax));
+      if (!match) return false;
+      if (!silent) state.push("hardbreak", "br", 0);
+      state.pos += match[0].length;
+      return true;
+    });
     let searchIndex = 0;
     md.use(container, "search", {
       render(tokens, index) {

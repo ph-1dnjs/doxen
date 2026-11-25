@@ -29,6 +29,23 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && actions) { actions.open = false; actions.querySelector("summary").focus(); }
 });
 
+function toggleWideView(control) {
+  const scrollTop = window.scrollY;
+  const anchor = scrollTop > 0 && [...$("#article").querySelectorAll(
+    "h1, h2, h3, h4, h5, h6, p, li, pre, tr, img, hr",
+  )].find((element) => {
+    const bounds = element.getBoundingClientRect();
+    return bounds.height > 0 && bounds.bottom > 0 && bounds.top < window.innerHeight;
+  });
+  const top = anchor ? anchor.getBoundingClientRect().top : 0;
+  const enabled = document.body.classList.toggle("is-wide-view");
+  control.setAttribute("aria-checked", String(enabled));
+  window.scrollTo({
+    top: anchor ? window.scrollY + anchor.getBoundingClientRect().top - top : scrollTop,
+    behavior: "instant",
+  });
+}
+
 function clearMarks(root, selector = "mark[data-hit]") {
   for (const mark of root.querySelectorAll(selector))
     mark.replaceWith(document.createTextNode(mark.textContent));
@@ -84,6 +101,10 @@ function attachTableSearches() {
       continue;
     }
     const table = node;
+    for (const cell of table.querySelectorAll("th, td")) {
+      if (cell.textContent.trim().length <= 12 && !cell.querySelector("br, img"))
+        cell.classList.add("table-compact-cell");
+    }
     const tools = el("div", undefined, "section-tools");
     const id = `table-search-${index++}`;
     const label = el(
@@ -108,7 +129,9 @@ function attachTableSearches() {
       }
     };
     tools.append(label, input);
-    table.before(tools);
+    const scroll = el("div", undefined, "table-scroll");
+    table.before(tools, scroll);
+    scroll.append(table);
   }
 }
 
@@ -636,6 +659,8 @@ function render() {
     (doc) => doc.tab === activeTab && doc.path.startsWith(folderPath),
   );
   $("#article").dataset.commentDocument = "";
+  if (!current || current.spreadsheet || current.apiReference)
+    document.body.classList.remove("is-wide-view");
   document.body.classList.toggle("is-spreadsheet", Boolean(current?.spreadsheet));
   document.body.classList.remove("sheet-fullscreen");
   document.body.classList.toggle("api-page", Boolean(current?.apiReference));
@@ -721,7 +746,21 @@ function render() {
       download.innerHTML = `${icon('<path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/>')}<span>문서 다운로드</span>`;
       menu.append(download);
     }
-    menu.append(allComments, share);
+    const wideView = el("button", undefined, "document-wide-view");
+    wideView.type = "button";
+    wideView.setAttribute("role", "switch");
+    wideView.setAttribute("aria-checked", String(document.body.classList.contains("is-wide-view")));
+    wideView.innerHTML = `${icon('<path d="M3 12h18M7 8l-4 4 4 4m10-8 4 4-4 4"/>')}<span>전체 너비</span><span class="wide-view-switch" aria-hidden="true"></span>`;
+    wideView.onclick = () => {
+      if (!document.startViewTransition || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        toggleWideView(wideView);
+        return;
+      }
+      document.startViewTransition(() => {
+        if (wideView.isConnected) toggleWideView(wideView);
+      });
+    };
+    menu.append(allComments, share, wideView);
     const divider = el("div", undefined, "document-actions-divider"); divider.setAttribute("role", "separator");
     menu.append(divider, github);
     actions.append(toggle, menu); title.append(actions);
