@@ -50,12 +50,16 @@ export async function attachComments(article, documentId, commentId) {
   const dismissController = new AbortController();
   article.commentDismissController = dismissController;
   const content = article.closest('main');
+  const header = document.querySelector('.site-header');
   function positionCommentPanel(panel) {
-    const trigger = panel.previousElementSibling.getBoundingClientRect();
+    const trigger = panel.previousElementSibling;
+    const anchor = trigger.hidden ? panel.parentElement : trigger;
+    const top = header.getBoundingClientRect().bottom + 12;
     const contentRight = content.getBoundingClientRect().right;
+    panel.style.maxHeight = `${window.innerHeight - top - 12}px`;
     const bottom = window.innerHeight - panel.offsetHeight - 12;
     panel.style.right = `${Math.max(16, window.innerWidth - contentRight - panel.offsetWidth)}px`;
-    panel.style.top = `${Math.max(12, Math.min(trigger.bottom + 8, bottom))}px`;
+    panel.style.top = `${Math.max(top, Math.min(anchor.getBoundingClientRect().bottom + 8, bottom))}px`;
   }
   const positionOpenCommentPanel = () => {
     const panel = article.querySelector('.comment-anchor > .comment-panel:not([hidden])');
