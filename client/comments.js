@@ -49,6 +49,23 @@ export async function attachComments(article, documentId, commentId) {
   }
   const dismissController = new AbortController();
   article.commentDismissController = dismissController;
+  const content = article.closest('main');
+  const header = document.querySelector('.site-header');
+  function positionCommentPanel(panel) {
+    const trigger = panel.previousElementSibling;
+    const anchor = trigger.hidden ? panel.parentElement : trigger;
+    const top = header.getBoundingClientRect().bottom + 12;
+    const contentRight = content.getBoundingClientRect().right;
+    panel.style.maxHeight = `${window.innerHeight - top - 12}px`;
+    const bottom = window.innerHeight - panel.offsetHeight - 12;
+    panel.style.right = `${Math.max(16, window.innerWidth - contentRight - panel.offsetWidth)}px`;
+    panel.style.top = `${Math.max(top, Math.min(anchor.getBoundingClientRect().bottom + 8, bottom))}px`;
+  }
+  const positionOpenCommentPanel = () => {
+    const panel = article.querySelector('.comment-anchor > .comment-panel:not([hidden])');
+    if (panel) positionCommentPanel(panel);
+  };
+  window.addEventListener('scroll', positionOpenCommentPanel, { capture: true, signal: dismissController.signal });
   const dismissComment = () => {
     clearDraftHighlight();
     popover.hidden = true;
@@ -401,6 +418,7 @@ export async function attachComments(article, documentId, commentId) {
       }
       showDraftHighlight(block, range);
       panel.hidden = false;
+      positionCommentPanel(panel);
       button.classList.add('is-open');
       document.body.classList.add('comment-card-open');
       panel.querySelector('.comment-list')?.updateFades();
@@ -498,8 +516,8 @@ export async function attachComments(article, documentId, commentId) {
       const bounds = wrapper.getBoundingClientRect();
       wrapper.style.setProperty('--comment-center', `${(content.top + content.bottom) / 2 - bounds.top}px`);
       wrapper.style.setProperty('--comment-offset', `${Math.max(0, right - wrapper.getBoundingClientRect().right)}px`);
-      wrapper.style.setProperty('--comment-panel-right', `${wrapper.getBoundingClientRect().right - window.innerWidth + 16}px`);
     }
+    positionOpenCommentPanel();
     for (const list of article.querySelectorAll('.comment-list')) list.updateFades();
   };
   article.commentLaneObserver = new ResizeObserver(alignButtons);

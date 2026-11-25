@@ -508,7 +508,43 @@ test("comments attach a selected passage and remain expanded", async ({ page }) 
   await expect(page.locator(".comment-list details, .comment-list summary")).toHaveCount(0);
 });
 
-test('comment lane and table of contents adapt without overlapping', async ({ page }) => {
+test('table cell comments stay usable without adding horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 900 });
+  await page.route('**/site.json', (route) => route.fulfill({ json: {
+    title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
+    documents: [{
+      id: 'guide/test', tab: 'guide', path: 'test.md', title: '이슈 모니터링', toc: [{ title: '연동 오류', anchor: 'errors', level: 2 }], sections: [],
+      html: '<h1>이슈 모니터링</h1><h2 id="errors">연동 오류</h2><table><thead><tr><th>기능명</th><th>비고</th></tr></thead><tbody><tr><td>SAP 연동 오류</td><td>처리 내역</td></tr></tbody></table>',
+    }],
+  } }));
+  await page.route('**/__doxen/comments**', (route) => {
+    const comment = {
+      id: '1', block: JSON.stringify(['처리 내역', 0]),
+      author: 'a@example.com', body: '기존 댓글', quote: '', created_at: '2026-11-11T00:00:00Z',
+    };
+    return route.request().method() === 'POST'
+      ? route.fulfill({ status: 201, json: { ...comment, ...route.request().postDataJSON(), id: '2', mine: true } })
+      : route.fulfill({ json: [comment] });
+  });
+  await page.goto('./#/guide%2Ftest');
+  const table = page.locator('.table-scroll');
+  const overflow = () => table.evaluate((element) => element.scrollWidth - element.clientWidth);
+  const trigger = table.getByRole('button', { name: '댓글 1개 더보기' });
+  await expect(trigger).toBeVisible();
+  await expect.poll(overflow).toBe(0);
+  await trigger.click();
+  const panel = table.locator('.comment-panel:not([hidden])');
+  await expect(panel.getByText('기존 댓글')).toBeInViewport();
+  const card = await panel.boundingBox();
+  const content = await page.locator('main#content').boundingBox();
+  expect(card.x).toBeCloseTo(content.x + content.width, 0);
+  await panel.locator('textarea').fill('새 셀 댓글');
+  await panel.getByRole('button', { name: '댓글 등록' }).click();
+  await expect(panel.getByText('새 셀 댓글')).toBeInViewport();
+  expect(await overflow()).toBe(0);
+});
+
+test('comment panels open beside the document and stay within the viewport', async ({ page }) => {
   await page.route('**/site.json', (route) => route.fulfill({ json: {
     title: '문서', tabs: [{ slug: 'guide', title: '안내' }],
     documents: [{ id: 'guide/test', tab: 'guide', path: 'test.md', title: '테스트', toc: [{ title: '본문', anchor: 'body', level: 2 }], sections: [], html: '<h1>테스트</h1><h2 id="body">본문</h2><p>댓글이 있는 문단입니다.</p>' }],
@@ -543,7 +579,8 @@ test('comment lane and table of contents adapt without overlapping', async ({ pa
     expect(card.x).toBeGreaterThanOrEqual(0);
     expect(card.x + card.width).toBeLessThanOrEqual(width);
     if (width >= 1600) await expect(page.locator('body')).toHaveClass(/comment-card-open/);
-    if (width < 1600) expect(card.x + card.width).toBeCloseTo(width - 16, 0);
+    const content = await page.locator('main#content').boundingBox();
+    expect(card.x).toBeCloseTo(Math.min(content.x + content.width, width - 16 - card.width), 0);
     await page.locator('body').click({ position: { x: 1, y: 1 } });
     await expect(page.locator('body')).not.toHaveClass(/comment-card-open/);
   }
