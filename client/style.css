@@ -1346,10 +1346,13 @@ body.has-comments .table-scroll .comment-trigger {
 .diagram-toolbar { flex-shrink:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px; border-bottom:1px solid #e2e8f0; }
 .diagram-toolbar strong { margin-right:auto; }
 .diagram-toolbar button { padding:6px 10px; cursor:pointer; }
+.diagram-toolbar button[aria-pressed="true"] { background:#eaf4ff; border-color:#8bbcf2; color:#174e8c; font-weight:600; }
 .diagram-toolbar output { min-width:4ch; text-align:center; }
 .diagram-viewport { position:relative; flex:1; min-height:0; overflow:hidden; touch-action:none; user-select:none; cursor:grab; background:#f8fafc; }
 .diagram-viewport.is-dragging { cursor:grabbing; }
 .diagram-canvas { position:absolute; left:0; top:0; width:max-content; transform-origin:0 0; }
+.diagram-viewport.is-fit-width { overflow-x:hidden; overflow-y:auto; touch-action:pan-y; cursor:auto; scrollbar-gutter:stable; }
+.diagram-viewport.is-fit-width .diagram-canvas { position:relative; margin:16px auto; }
 .diagram-viewer-status { margin:0; padding:0 12px; }
 body.api-page .layout { grid-template-columns:minmax(0,1fr); }
 body.api-page :is(.sidebar,.toc,#pagination,#breadcrumb,.compact-toc) { display:none; }

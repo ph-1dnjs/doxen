@@ -7,6 +7,7 @@ mermaid.initialize({
   suppressErrorRendering: true,
   theme: "default",
   fontFamily: '"Noto Sans KR Variable", sans-serif',
+  themeCSS: "foreignObject .nodeLabel { word-break: keep-all; overflow-wrap: normal; }",
 });
 
 let diagramId = 0;

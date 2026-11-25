@@ -44,7 +44,7 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
     "## 3. 클라이언트 · 서버 요청 흐름",
     "```mermaid\nsequenceDiagram\n    autonumber\n    participant C as 클라이언트\n    participant S as 서버\n    C->>S: 사업자 정보 확인\n    S-->>C: 검증 결과\n    C->>S: 회원가입 요청\n    S-->>C: 가입 완료\n```",
     "```\nsequenceDiagram\n    A->>B: 언어 표시 없는 시퀀스\n```",
-    "```mermaid\nflowchart LR\n    A[입력] --> B[완료]\n```",
+    '```mermaid\nflowchart TD\n    A["현재 번호 확인 차단<br/>VERIFICATION_ATTEMPT_EXCEEDED"] --> B["VERIFICATION_INVALID_CODE"]\n    B --> C[인증번호 입력 대기] --> D[인증번호 확인 요청] --> E[완료]\n```',
     "```mermaid\ninvalid diagram syntax\n```",
     "```js\nconst message = '일반 코드는 유지';\n```",
   ].join("\n\n");
@@ -112,6 +112,45 @@ test("Mermaid renders locally, preserves invalid sources and survives navigation
   await page.keyboard.press("Escape");
   await expect(modal).toHaveCount(0);
   await expect(expand).toBeFocused();
+  const flowchart = page.locator(".diagram").nth(2);
+  const labelsFit = (diagram) => diagram.locator(".nodeLabel").evaluateAll((labels) => labels.map((label) => {
+    const box = label.closest("foreignObject").getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    return [...range.getClientRects()].every((rect) => rect.right <= box.right + 1 && rect.bottom <= box.bottom + 1);
+  }));
+  expect(await labelsFit(flowchart)).toEqual(Array(5).fill(true));
+  await expect(page.locator(".diagram").nth(2).locator(".nodeLabel").first()).toHaveCSS("word-break", "keep-all");
+  await page.locator(".diagram").nth(2).getByRole("button", { name: "다이어그램 크게 보기" }).click();
+  await expect(modal.locator(".nodeLabel").first()).toHaveCSS("word-break", "keep-all");
+  expect(await labelsFit(modal)).toEqual(Array(5).fill(true));
+  const widthFit = modal.getByRole("button", { name: "너비 맞춤" });
+  await expect(widthFit).toHaveAttribute("aria-pressed", "true");
+  await expect(widthFit).toHaveCSS("background-color", "rgb(234, 244, 255)");
+  const scrollArea = modal.locator(".diagram-viewport");
+  await expect.poll(() => scrollArea.evaluate((node) => ({
+    fitsWidth: node.scrollWidth === node.clientWidth,
+    overflowsHeight: node.scrollHeight > node.clientHeight,
+  }))).toEqual({ fitsWidth: true, overflowsHeight: true });
+  await expect.poll(() => scrollArea.evaluate((node) =>
+    Math.abs(node.querySelector("svg").getBoundingClientRect().width - (node.clientWidth - 32))
+  )).toBeLessThan(1);
+  await scrollArea.hover();
+  await page.mouse.wheel(0, 450);
+  await expect.poll(() => scrollArea.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+  await modal.getByRole("button", { name: "화면 맞춤" }).click();
+  await expect(widthFit).toHaveAttribute("aria-pressed", "false");
+  await expect(modal.getByRole("button", { name: "화면 맞춤" })).toHaveAttribute("aria-pressed", "true");
+  await expect(modal.getByRole("button", { name: "화면 맞춤" })).toHaveCSS("background-color", "rgb(234, 244, 255)");
+  await expect.poll(() => scrollArea.evaluate((node) => node.scrollTop)).toBe(0);
+  const arrow = modal.locator("path[marker-end]").first();
+  expect(await arrow.evaluate((path) => {
+    const reference = getComputedStyle(path).markerEnd.match(/#([^"')]+)/)?.[1];
+    const marker = reference && document.getElementById(reference);
+    return marker?.localName === "marker" && marker.closest("svg") === path.closest("svg");
+  })).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(modal).toHaveCount(0);
   await expect(page.locator(".diagram-error")).toHaveCount(1);
   await expect(page.locator("pre code.language-mermaid")).toHaveText("invalid diagram syntax\n");
   await expect(page.locator("pre code.language-js")).toContainText("일반 코드는 유지");
