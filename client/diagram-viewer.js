@@ -10,18 +10,22 @@ export function openDiagram(source, trigger) {
   const dialog = document.createElement("dialog");
   dialog.className = "diagram-dialog";
   dialog.setAttribute("aria-label", "다이어그램 크게 보기");
-  dialog.innerHTML = `<div class="diagram-toolbar"><strong>다이어그램</strong><button type="button" data-action="out" aria-label="축소">−</button><output aria-live="polite"></output><button type="button" data-action="in" aria-label="확대">+</button><button type="button" data-action="reset">100%</button><button type="button" data-action="fit">화면 맞춤</button><button type="button" data-action="fullscreen">전체화면</button><button type="button" data-action="close" aria-label="다이어그램 닫기">닫기</button></div><div class="diagram-viewport" tabindex="0" aria-label="다이어그램 이동 영역"><div class="diagram-canvas"></div></div><p class="diagram-viewer-status" role="status"></p>`;
+  dialog.innerHTML = `<div class="diagram-toolbar"><strong>다이어그램</strong><button type="button" data-action="out" aria-label="축소">−</button><output aria-live="polite"></output><button type="button" data-action="in" aria-label="확대">+</button><button type="button" data-action="reset">100%</button><button type="button" data-action="fit" aria-pressed="false">화면 맞춤</button><button type="button" data-action="fit-width" aria-pressed="false">너비 맞춤</button><button type="button" data-action="fullscreen">전체화면</button><button type="button" data-action="close" aria-label="다이어그램 닫기">닫기</button></div><div class="diagram-viewport" tabindex="0" aria-label="다이어그램 이동 영역"><div class="diagram-canvas"></div></div><p class="diagram-viewer-status" role="status"></p>`;
   const svg = source.cloneNode(true);
   // Avoid duplicate SVG IDs while retaining markers, CSS selectors and accessibility refs.
   const suffix = `-viewer-${Date.now()}`;
-  const ids = [...svg.querySelectorAll("[id]")].map((node) => node.id);
-  if (svg.id) ids.push(svg.id);
-  let markup = svg.outerHTML;
-  for (const id of ids.sort((a, b) => b.length - a.length)) {
-    markup = markup.replaceAll(`id="${id}"`, `id="${id}${suffix}"`).replaceAll(`#${id}`, `#${id}${suffix}`);
+  const elementsWithIds = [...svg.querySelectorAll("[id]")];
+  if (svg.id) elementsWithIds.push(svg);
+  const ids = new Set(elementsWithIds.map((node) => node.id));
+  for (const node of elementsWithIds) node.id += suffix;
+  for (const node of svg.querySelectorAll("[aria-labelledby], [aria-describedby]")) {
+    for (const attr of ["aria-labelledby", "aria-describedby"]) {
+      const value = node.getAttribute(attr);
+      if (value) node.setAttribute(attr, value.replace(/\S+/g, (id) => ids.has(id) ? id + suffix : id));
+    }
   }
   const canvas = dialog.querySelector(".diagram-canvas");
-  canvas.innerHTML = markup;
+  canvas.innerHTML = svg.outerHTML.replace(/#([\w-]+)/g, (reference, id) => ids.has(id) ? reference + suffix : reference);
   const image = canvas.querySelector("svg");
   const box = source.viewBox.baseVal;
   const width = box.width || source.getBoundingClientRect().width || 1200;
@@ -29,7 +33,15 @@ export function openDiagram(source, trigger) {
   const viewport = dialog.querySelector(".diagram-viewport");
   let ownsFullscreen = false;
   let zoom = 1;
-  let fitting = true;
+  let mode;
+  const fitButton = dialog.querySelector('[data-action="fit"]');
+  const fitWidthButton = dialog.querySelector('[data-action="fit-width"]');
+  function setMode(next) {
+    mode = next;
+    viewport.classList.toggle("is-fit-width", mode === "width");
+    fitButton.setAttribute("aria-pressed", String(mode === "fit"));
+    fitWidthButton.setAttribute("aria-pressed", String(mode === "width"));
+  }
   let x = 0, y = 0;
   function paint() {
     image.style.width = `${width * zoom}px`;
@@ -53,19 +65,29 @@ export function openDiagram(source, trigger) {
     y = (viewport.clientHeight - height * zoom) / 2;
     paint();
   };
-  const observer = new ResizeObserver(() => { if (fitting) fit(); });
+  const fitWidth = () => {
+    zoom = Math.max(1, viewport.clientWidth - 32) / width;
+    x = 0;
+    y = 0;
+    paint();
+  };
+  const observer = new ResizeObserver(() => {
+    if (mode === "fit") fit();
+    if (mode === "width") fitWidth();
+  });
   viewport.addEventListener("wheel", (event) => {
+    if (mode === "width") return;
     event.preventDefault();
-    fitting = false;
+    setMode("manual");
     const rect = viewport.getBoundingClientRect();
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1);
     apply(zoom * Math.exp(-delta * 0.002), event.clientX - rect.left, event.clientY - rect.top);
   }, { passive: false });
   let drag;
   viewport.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || drag) return;
+    if (mode === "width" || event.button !== 0 || drag) return;
     event.preventDefault();
-    fitting = false;
+    setMode("manual");
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     viewport.setPointerCapture(event.pointerId);
     viewport.classList.add("is-dragging");
@@ -87,25 +109,40 @@ export function openDiagram(source, trigger) {
   for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) viewport.addEventListener(name, release);
   viewport.addEventListener("keydown", (event) => {
     const offset = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[event.key];
-    if (!offset) return;
+    if (mode === "width" || !offset) return;
     event.preventDefault();
-    fitting = false;
+    setMode("manual");
     x += offset[0]; y += offset[1]; paint();
   });
   document.body.append(dialog);
   const previousOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
   dialog.showModal();
-  fit();
+  setMode("width");
+  fitWidth();
   observer.observe(viewport);
   dialog.addEventListener("click", async (event) => {
     const action = event.target.closest("button")?.dataset.action;
     if (action === "close" || event.target === dialog) dialog.close();
     if (["in", "out", "reset"].includes(action)) {
-      fitting = false;
+      if (mode === "width") {
+        x = 16;
+        y = 16 - viewport.scrollTop;
+        viewport.scrollTop = 0;
+      }
+      setMode("manual");
       apply(action === "reset" ? 1 : zoom * (action === "in" ? 1.25 : 0.8));
     }
-    if (action === "fit") { fitting = true; fit(); }
+    if (action === "fit") {
+      viewport.scrollTop = 0;
+      setMode("fit");
+      fit();
+    }
+    if (action === "fit-width") {
+      setMode("width");
+      fitWidth();
+      viewport.focus({ preventScroll: true });
+    }
     if (action === "fullscreen") {
       try {
         if (ownsFullscreen && document.fullscreenElement) await document.exitFullscreen();
